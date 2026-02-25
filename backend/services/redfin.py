@@ -156,12 +156,118 @@ async def search_listings(
             resp.raise_for_status()
             text = resp.text
     except Exception as e:
-        logger.warning(f"Redfin gis-csv failed: {e}")
+        logger.warning(f"Redfin gis-csv failed: {type(e).__name__}: {e!r}")
         return []
 
     results = _parse_csv(text)
+
+    # Some MLS markets (e.g. NWMLS / Washington State) block the CSV endpoint.
+    # Fall back to the JSON gis endpoint which has fewer restrictions.
+    if not results:
+        logger.info(f"gis-csv returned no rows for '{geo_query}', trying JSON gis endpoint")
+        results = await _search_gis_json(params)
+
     logger.info(f"Redfin returned {len(results)} listings for '{geo_query}'")
     return results
+
+
+async def _search_gis_json(params: dict) -> List[dict]:
+    """Fallback: call the JSON gis endpoint (works where gis-csv is MLS-blocked)."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=20, headers=RF_HEADERS, follow_redirects=True
+        ) as client:
+            resp = await client.get(
+                "https://www.redfin.com/stingray/api/gis",
+                params=params,
+            )
+            resp.raise_for_status()
+            text = re.sub(r'^\{\}&&', '', resp.text)
+            data = __import__('json').loads(text)
+    except Exception as e:
+        logger.warning(f"Redfin JSON gis failed: {type(e).__name__}: {e!r}")
+        return []
+
+    homes = data.get("payload", {}).get("homes", [])
+    results = []
+    for h in homes:
+        try:
+            parsed = _parse_home(h)
+            if parsed:
+                results.append(parsed)
+        except Exception as e:
+            logger.debug(f"JSON home parse error: {e}")
+    return results
+
+
+_PTYPE_MAP_JSON = {
+    1: "House", 2: "Condo", 3: "Townhouse", 4: "Multi-Family",
+    6: "Single Family", 8: "Condo", 13: "Mobile",
+}
+
+
+def _parse_home(h: dict) -> Optional[dict]:
+    """Parse a single home object from the JSON gis endpoint."""
+    street = (h.get("streetLine") or {}).get("value", "")
+    if not street:
+        return None
+
+    city_val = h.get("city", "")
+    state_val = h.get("state", "")
+    zip_val = h.get("zip", "")
+    address_display = f"{street}, {city_val}, {state_val} {zip_val}".strip()
+
+    lat_lng = (h.get("latLong") or {}).get("value", {})
+    lat = lat_lng.get("latitude")
+    lng = lat_lng.get("longitude")
+
+    price_raw = h.get("price") or {}
+    price = price_raw.get("value") if isinstance(price_raw, dict) else price_raw
+
+    sqft_raw = h.get("sqFt") or {}
+    sqft = sqft_raw.get("value") if isinstance(sqft_raw, dict) else sqft_raw
+
+    lot_raw = h.get("lotSize") or {}
+    lot = lot_raw.get("value") if isinstance(lot_raw, dict) else lot_raw
+
+    yr_raw = h.get("yearBuilt") or {}
+    year = yr_raw.get("value") if isinstance(yr_raw, dict) else yr_raw
+
+    listing_id = h.get("listingId") or ""
+    url_path = h.get("url", "")
+    full_url = f"https://www.redfin.com{url_path}" if url_path else ""
+
+    prop_id = None
+    if url_path:
+        m = re.search(r"/home/(\d+)", url_path)
+        if m:
+            prop_id = m.group(1)
+
+    external_id = f"redfin-{prop_id or listing_id or address_display}"
+    prop_type = _PTYPE_MAP_JSON.get(h.get("propertyType", 6), "Single Family")
+
+    return {
+        "external_id": external_id,
+        "address_display": address_display,
+        "city": city_val,
+        "state": state_val,
+        "zip_code": zip_val,
+        "beds": h.get("beds"),
+        "baths": h.get("baths"),
+        "sqft": int(sqft) if sqft else None,
+        "lot_sqft": int(lot) if lot else None,
+        "year_built": int(year) if year else None,
+        "hoa_fee": None,
+        "property_tax": None,
+        "list_price": float(price) if price else None,
+        "property_type": prop_type,
+        "latitude": lat,
+        "longitude": lng,
+        "photo_url": None,
+        "photos": [],
+        "source": "redfin",
+        "_redfin_url": full_url,
+    }
 
 
 _PROP_TYPE_MAP = {
