@@ -53,15 +53,13 @@ def compute_scores(
         "price_trend": 0.15,
     }
 
-    total_weight = 0.0
-    weighted_sum = 0.0
-    for key, weight in weights.items():
-        val = components[key]
-        if val is not None:
-            weighted_sum += val * weight
-            total_weight += weight
-
-    overall = round(weighted_sum / total_weight, 1) if total_weight > 0 else 50.0
+    # Missing components use 50 (neutral) so one bad signal doesn't
+    # dominate the score when noise/crime data isn't available yet.
+    weighted_sum = sum(
+        (v if v is not None else 50.0) * w
+        for v, w in [(components[k], weights[k]) for k in weights]
+    )
+    overall = round(weighted_sum, 1)
 
     value_vals = [v for v in [components["price_vs_avm"], components["rental_yield"]] if v is not None]
     value_score = round(sum(value_vals) / len(value_vals), 1) if value_vals else 50.0

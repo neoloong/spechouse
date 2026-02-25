@@ -29,12 +29,20 @@ function ListingsContent() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    searchProperties({
+    const searchParams = {
       city: city || undefined,
       beds: beds ? Number(beds) : undefined,
       max_price: maxPrice ? Number(maxPrice) : undefined,
-    })
-      .then(setProperties)
+    };
+    searchProperties(searchParams)
+      .then((props) => {
+        setProperties(props);
+        // Re-fetch once after 8s to pick up photos loaded by background tasks
+        const t = setTimeout(() => {
+          searchProperties(searchParams).then(setProperties).catch(() => {});
+        }, 8000);
+        return () => clearTimeout(t);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [city, beds, maxPrice]);

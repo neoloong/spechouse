@@ -2,10 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProperty, fmt, type PropertyDetail } from "@/lib/api";
 import ScoreBadge from "@/components/ScoreBadge";
+import BackButton from "@/components/BackButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, GitCompareArrows } from "lucide-react";
+import { GitCompareArrows, ExternalLink } from "lucide-react";
 
 interface RowProps {
   label: string;
@@ -45,11 +46,19 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const rental = agg.rental ?? {};
   const env = agg.environment ?? {};
   const scores = agg.scores ?? {};
+  const redfinUrl: string | undefined = (agg as Record<string, unknown>)._redfin_url as string | undefined;
 
   const pricePerSqft =
     property.list_price && property.sqft
       ? property.list_price / property.sqft
       : null;
+
+  // Construct Zillow search URL from address
+  const zillowUrl = property.address_display
+    ? `https://www.zillow.com/homes/${encodeURIComponent(property.address_display)}/`
+    : null;
+
+  const photoUrl = property.photo_url || (property.photos && property.photos[0]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,34 +68,21 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <Link href="/" className="font-black text-lg shrink-0">
             Spec<span className="text-primary">House</span>
           </Link>
-          <Link href="/listings" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to results
-          </Link>
+          <BackButton />
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Photo gallery */}
-        {property.photos && property.photos.length > 0 ? (
-          <div className="mb-8 rounded-xl overflow-hidden grid grid-cols-1 gap-1">
+        {/* Photo */}
+        {photoUrl && (
+          <div className="mb-8 rounded-xl overflow-hidden">
             <img
-              src={property.photos[0]}
+              src={photoUrl}
               alt={property.address_display}
               className="w-full h-80 object-cover"
             />
-            {property.photos.length > 1 && (
-              <div className="grid grid-cols-4 gap-1">
-                {property.photos.slice(1, 5).map((url, i) => (
-                  <img key={i} src={url} alt="" className="w-full h-24 object-cover" />
-                ))}
-              </div>
-            )}
           </div>
-        ) : property.photo_url ? (
-          <div className="mb-8 rounded-xl overflow-hidden">
-            <img src={property.photo_url} alt={property.address_display} className="w-full h-80 object-cover" />
-          </div>
-        ) : null}
+        )}
 
         {/* Header */}
         <div className="mb-8">
@@ -102,7 +98,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               </Badge>
             )}
           </p>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <p className="text-3xl font-black">{fmt(property.list_price, "currency")}</p>
             <Link href={`/compare?ids=${property.id}`}>
               <Button size="sm" variant="outline">
@@ -110,11 +106,27 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 Add to compare
               </Button>
             </Link>
+            {redfinUrl && (
+              <a href={redfinUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline">
+                  <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                  Redfin
+                </Button>
+              </a>
+            )}
+            {zillowUrl && (
+              <a href={zillowUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline">
+                  <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                  Zillow
+                </Button>
+              </a>
+            )}
           </div>
         </div>
 
         {/* Score cards */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid grid-cols-3 gap-3 mb-2">
           {[
             { label: "Overall", score: scores.overall },
             { label: "Value", score: scores.value },
@@ -126,6 +138,10 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             </div>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground mb-8 px-1">
+          Scores reflect available data. Missing noise/crime signals default to neutral (50).
+          Expensive markets naturally score lower on rental yield — that&apos;s expected.
+        </p>
 
         {/* Financials */}
         <Section title="Financials">
@@ -163,7 +179,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                   )}
                 </span>
               ) : (
-                "—"
+                <span className="text-muted-foreground text-xs">
+                  N/A — set HOWLOUD_API_KEY to enable
+                </span>
               )
             }
           />
@@ -173,7 +191,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               env.crime_score != null ? (
                 <span>{env.crime_score.toFixed(0)} / 100 (lower = safer)</span>
               ) : (
-                "—"
+                <span className="text-muted-foreground text-xs">N/A — coming soon</span>
               )
             }
           />
@@ -181,7 +199,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
         <Separator className="my-6" />
         <p className="text-xs text-muted-foreground text-center">
-          Data sourced from Rentcast, HowLoud. Last enriched:{" "}
+          Listing data from Redfin · Rental estimates from HUD FY2024 FMR · Last enriched:{" "}
           {property.last_enriched ? new Date(property.last_enriched).toLocaleDateString() : "pending"}
         </p>
       </div>
