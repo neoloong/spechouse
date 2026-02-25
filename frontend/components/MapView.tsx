@@ -32,18 +32,7 @@ export default function MapView({ properties, onMarkerClick }: Props) {
 
       const map = new maplibre.Map({
         container: containerRef.current,
-        style: {
-          version: 8,
-          sources: {
-            osm: {
-              type: "raster",
-              tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-              tileSize: 256,
-              attribution: "© OpenStreetMap contributors",
-            },
-          },
-          layers: [{ id: "osm", type: "raster", source: "osm" }],
-        },
+        style: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
         center: [centerLng, centerLat],
         zoom: withCoords.length > 1 ? 10 : 12,
       });

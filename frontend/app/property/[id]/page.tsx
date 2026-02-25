@@ -73,7 +73,6 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               src={property.photos[0]}
               alt={property.address_display}
               className="w-full h-80 object-cover"
-              onError={() => {}}
             />
             {property.photos.length > 1 && (
               <div className="grid grid-cols-4 gap-1">
