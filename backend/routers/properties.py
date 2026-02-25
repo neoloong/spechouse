@@ -8,7 +8,7 @@ from sqlalchemy import select, update, func
 from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
 from datetime import datetime
 
-from backend.db import get_db
+from backend.db import get_db, SessionLocal
 from backend.models.property import PropertyORM, PropertyListItem, PropertyOut
 from backend.services import howloud, scorer, redfin
 from backend.services.mock_data import MOCK_PROPERTIES, MOCK_AGG
@@ -81,51 +81,53 @@ async def _upsert_property(db: AsyncSession, data: dict) -> PropertyORM:
     return prop
 
 
-async def _enrich_property(prop_id: int, db: AsyncSession) -> None:
-    """Fetch noise data, compute scores, and scrape photo. Runs once per property."""
-    stmt = select(PropertyORM).where(PropertyORM.id == prop_id)
-    result = await db.execute(stmt)
-    prop = result.scalar_one_or_none()
-    if prop is None:
-        return
+async def _enrich_property(prop_id: int) -> None:
+    """Fetch noise data, compute scores, and scrape photo. Runs once per property.
+    Creates its own DB session — background tasks cannot reuse the request session."""
+    async with SessionLocal() as db:
+        stmt = select(PropertyORM).where(PropertyORM.id == prop_id)
+        result = await db.execute(stmt)
+        prop = result.scalar_one_or_none()
+        if prop is None:
+            return
 
-    noise_data: dict = {}
-    if prop.latitude and prop.longitude:
-        noise_data = await howloud.get_noise(prop.latitude, prop.longitude)
+        noise_data: dict = {}
+        if prop.latitude and prop.longitude:
+            noise_data = await howloud.get_noise(prop.latitude, prop.longitude)
 
-    new_agg = scorer.enrich_agg_data(
-        current_agg=prop.agg_data or {},
-        list_price=float(prop.list_price) if prop.list_price else None,
-        sqft=prop.sqft,
-        noise_data=noise_data,
-        city=prop.city,
-        state=prop.state,
-        beds=prop.beds,
-    )
-
-    # Fetch photo from Redfin listing page if still missing
-    photo_url = prop.photo_url
-    photos = prop.photos or []
-    if not photo_url:
-        redfin_url = (prop.agg_data or {}).get("_redfin_url")
-        if redfin_url:
-            fetched = await redfin.fetch_photo_url(redfin_url)
-            if fetched:
-                photo_url = fetched
-                photos = [fetched]
-                logger.info(f"Fetched photo for property {prop_id}: {fetched}")
-
-    await db.execute(
-        update(PropertyORM)
-        .where(PropertyORM.id == prop_id)
-        .values(
-            agg_data=new_agg,
-            last_enriched=datetime.utcnow(),
-            photo_url=photo_url,
-            photos=photos,
+        new_agg = scorer.enrich_agg_data(
+            current_agg=prop.agg_data or {},
+            list_price=float(prop.list_price) if prop.list_price else None,
+            sqft=prop.sqft,
+            noise_data=noise_data,
+            city=prop.city,
+            state=prop.state,
+            beds=prop.beds,
         )
-    )
-    await db.commit()
+
+        # Fetch photo from Redfin listing page if still missing
+        photo_url = prop.photo_url
+        photos = prop.photos or []
+        if not photo_url:
+            redfin_url = (prop.agg_data or {}).get("_redfin_url")
+            if redfin_url:
+                fetched = await redfin.fetch_photo_url(redfin_url)
+                if fetched:
+                    photo_url = fetched
+                    photos = [fetched]
+                    logger.info(f"Fetched photo for property {prop_id}: {fetched}")
+
+        await db.execute(
+            update(PropertyORM)
+            .where(PropertyORM.id == prop_id)
+            .values(
+                agg_data=new_agg,
+                last_enriched=datetime.utcnow(),
+                photo_url=photo_url,
+                photos=photos,
+            )
+        )
+        await db.commit()
 
 
 async def _cached_city_results(
@@ -170,7 +172,7 @@ async def search_properties(
     beds: Optional[int] = Query(None),
     max_price: Optional[float] = Query(None),
     property_type: Optional[str] = Query(None),
-    limit: int = Query(20, le=40),
+    limit: int = Query(40, le=350),
 ):
     # ── Mock mode ─────────────────────────────────────────────────────────────
     if _use_mock():
@@ -226,7 +228,7 @@ async def search_properties(
             continue
         prop = await _upsert_property(db, parsed)
         if prop.last_enriched is None:
-            background_tasks.add_task(_enrich_property, prop.id, db)
+            background_tasks.add_task(_enrich_property, prop.id)
         props.append(prop)
 
     return props
