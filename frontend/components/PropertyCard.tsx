@@ -33,9 +33,7 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-              🏠 No photo
-            </div>
+            <div className="w-full h-full animate-pulse bg-gradient-to-r from-muted via-muted/60 to-muted" />
           )}
           <div className="absolute top-2 right-2">
             <ScoreBadge score={scores?.overall} size="sm" />
