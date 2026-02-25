@@ -45,7 +45,9 @@ export default function MapView({ properties, onMarkerClick }: Props) {
           el.className =
             "w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-lg cursor-pointer border-2 border-white";
           el.textContent = p.list_price
-            ? `$${Math.round(p.list_price / 1000)}k`
+            ? p.list_price >= 999_500
+              ? `$${(p.list_price / 1_000_000).toFixed(1).replace(/\.0$/, "")}m`
+              : `$${Math.round(p.list_price / 1000)}k`
             : "•";
           el.style.display = "flex";
           el.style.alignItems = "center";

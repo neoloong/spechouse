@@ -17,7 +17,7 @@ export default function HomePage() {
 
       {/* Hints */}
       <div className="mt-8 flex flex-wrap justify-center gap-2 text-sm text-muted-foreground">
-        {["San Francisco CA", "Fremont CA", "San Jose CA", "Austin TX", "Seattle WA", "Miami FL", "Denver CO"].map((city) => (
+        {["San Francisco CA", "San Jose CA", "Austin TX", "Seattle WA", "Miami FL", "Denver CO"].map((city) => (
           <a
             key={city}
             href={`/listings?city=${encodeURIComponent(city)}`}
