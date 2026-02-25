@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://spechouse:spechouse@localhost:5432/spechouse"
     RENTCAST_API_KEY: str = ""
     HOWLOUD_API_KEY: str = ""
+    HOWLOUD_CLIENT_ID: str = ""
     SPOTCRIME_API_KEY: str = ""
     NEXT_PUBLIC_API_URL: str = "http://localhost:8000"
 
