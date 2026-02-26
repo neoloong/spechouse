@@ -15,6 +15,14 @@ def _build_spec_row(prop: PropertyORM) -> dict:
     rental = agg.get("rental", {})
     env = agg.get("environment", {})
     scores = agg.get("scores", {})
+    schools = agg.get("schools", [])
+
+    schools_within_3mi = sum(1 for s in schools if (s.get("distance_mi") or 99) <= 3.0)
+    nearest = schools[0] if schools else None
+    nearest_school_str = (
+        f"{nearest['name']} ({nearest['distance_mi']} mi)" if nearest and nearest.get("distance_mi") else
+        nearest["name"] if nearest else None
+    )
 
     price_per_sqft = None
     if prop.list_price and prop.sqft:
@@ -47,6 +55,8 @@ def _build_spec_row(prop: PropertyORM) -> dict:
         "score_overall": scores.get("overall"),
         "score_value": scores.get("value"),
         "score_investment": scores.get("investment"),
+        "schools_count": schools_within_3mi or None,
+        "nearest_school": nearest_school_str,
     }
 
 

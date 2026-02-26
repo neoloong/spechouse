@@ -10,7 +10,7 @@ from datetime import datetime
 
 from backend.db import get_db, SessionLocal
 from backend.models.property import PropertyORM, PropertyListItem, PropertyOut
-from backend.services import howloud, scorer, redfin
+from backend.services import howloud, scorer, redfin, schools as schools_svc
 from backend.services.mock_data import MOCK_PROPERTIES, MOCK_AGG
 from backend.config import settings
 
@@ -92,8 +92,12 @@ async def _enrich_property(prop_id: int) -> None:
             return
 
         noise_data: dict = {}
+        schools_data: list = []
         if prop.latitude and prop.longitude:
-            noise_data = await howloud.get_noise(prop.latitude, prop.longitude)
+            noise_data, schools_data = await asyncio.gather(
+                howloud.get_noise(prop.latitude, prop.longitude),
+                schools_svc.get_nearby_schools(prop.latitude, prop.longitude),
+            )
 
         new_agg = scorer.enrich_agg_data(
             current_agg=prop.agg_data or {},
@@ -104,6 +108,8 @@ async def _enrich_property(prop_id: int) -> None:
             state=prop.state,
             beds=prop.beds,
         )
+        if schools_data:
+            new_agg["schools"] = schools_data
 
         # Fetch photo from Redfin listing page if still missing
         photo_url = prop.photo_url
@@ -130,18 +136,32 @@ async def _enrich_property(prop_id: int) -> None:
         await db.commit()
 
 
+_PTYPE_SQL_PATTERNS = {
+    "house": "%single%family%",
+    "condo": "%condo%",
+    "townhouse": "%townhouse%",
+    "multi-family": "%multi%family%",
+    "land": "%land%",
+    "mobile": "%mobile%",
+}
+
+
 async def _cached_city_results(
     db: AsyncSession,
     city: Optional[str],
     zip_code: Optional[str],
     beds: Optional[int],
+    min_baths: Optional[float],
     max_price: Optional[float],
+    min_price: Optional[float],
+    property_type: Optional[str],
+    min_sqft: Optional[int],
+    max_sqft: Optional[int],
     limit: int,
 ) -> Optional[List[PropertyORM]]:
     """Return DB-cached results if we already have data for this city/zip."""
     stmt = select(PropertyORM)
     if city:
-        # Use first word of city for matching ("Fremont, CA" → "Fremont")
         city_base = city.split(",")[0].split()[0]
         stmt = stmt.where(PropertyORM.city.ilike(f"%{city_base}%"))
     elif zip_code:
@@ -151,8 +171,18 @@ async def _cached_city_results(
 
     if beds:
         stmt = stmt.where(PropertyORM.beds >= beds)
+    if min_baths:
+        stmt = stmt.where(PropertyORM.baths >= min_baths)
     if max_price:
         stmt = stmt.where(PropertyORM.list_price <= max_price)
+    if min_price:
+        stmt = stmt.where(PropertyORM.list_price >= min_price)
+    if property_type and property_type in _PTYPE_SQL_PATTERNS:
+        stmt = stmt.where(PropertyORM.property_type.ilike(_PTYPE_SQL_PATTERNS[property_type]))
+    if min_sqft:
+        stmt = stmt.where(PropertyORM.sqft >= min_sqft)
+    if max_sqft:
+        stmt = stmt.where(PropertyORM.sqft <= max_sqft)
 
     stmt = stmt.limit(limit)
     result = await db.execute(stmt)
@@ -170,8 +200,12 @@ async def search_properties(
     state: Optional[str] = Query(None),
     zip_code: Optional[str] = Query(None),
     beds: Optional[int] = Query(None),
+    min_baths: Optional[float] = Query(None),
     max_price: Optional[float] = Query(None),
+    min_price: Optional[float] = Query(None),
     property_type: Optional[str] = Query(None),
+    min_sqft: Optional[int] = Query(None),
+    max_sqft: Optional[int] = Query(None),
     limit: int = Query(40, le=350),
 ):
     # ── Mock mode ─────────────────────────────────────────────────────────────
@@ -196,20 +230,25 @@ async def search_properties(
         return props[:limit]
 
     # ── Cache-first: return DB results if available ───────────────────────────
-    cached = await _cached_city_results(db, city, zip_code, beds, max_price, limit)
+    cached = await _cached_city_results(
+        db, city, zip_code, beds, min_baths, max_price, min_price,
+        property_type, min_sqft, max_sqft, limit,
+    )
     if cached:
         logger.info(f"Cache hit for city={city} — skipping Redfin call")
         return cached
 
     # ── Redfin (free, no API key needed) ─────────────────────────────────────
-    # Pass the full city string to Redfin service — it uses Nominatim to
-    # geocode "Fremont, CA" or "Fremont" correctly without a TX hardcoded fallback
     try:
         raw_listings = await redfin.search_listings(
             city=city or "",
             state=state,
             beds_min=beds,
+            baths_min=min_baths,
+            price_min=min_price,
             price_max=max_price,
+            property_type=property_type,
+            sqft_min=min_sqft,
             limit=limit,
         )
     except Exception as exc:

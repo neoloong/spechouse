@@ -5,10 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
+import FilterBar, { FilterState, DEFAULT_FILTERS } from "@/components/FilterBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { searchProperties, type PropertyListItem } from "@/lib/api";
-import { GitCompareArrows } from "lucide-react";
+import { GitCompareArrows, Sparkles, X } from "lucide-react";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -16,37 +17,82 @@ function ListingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const city = searchParams.get("city") ?? "";
-  const beds = searchParams.get("beds") ?? "";
-  const maxPrice = searchParams.get("max_price") ?? "";
+  // ── URL params ──────────────────────────────────────────────────────────────
+  const city        = searchParams.get("city") ?? "";
+  const zipCode     = searchParams.get("zip_code") ?? "";
+  const stateCode   = searchParams.get("state") ?? "";
+  const aiQuery     = searchParams.get("ai_query") ?? "";
+
+  // Filter params from URL
+  const bedsParam       = searchParams.get("beds") ?? "";
+  const minBathsParam   = searchParams.get("min_baths") ?? "";
+  const minPriceParam   = searchParams.get("min_price") ?? "";
+  const maxPriceParam   = searchParams.get("max_price") ?? "";
+  const propertyType    = searchParams.get("property_type") ?? "";
+  const minSqftParam    = searchParams.get("min_sqft") ?? "";
+
+  const searchLabel = zipCode || city;
+
+  // ── Filter state (driven by URL) ─────────────────────────────────────────
+  const filterValue: FilterState = {
+    propertyType,
+    minBeds:  bedsParam     ? Number(bedsParam)     : 0,
+    minBaths: minBathsParam ? Number(minBathsParam) : 0,
+    minPrice: minPriceParam ? Number(minPriceParam) : 0,
+    maxPrice: maxPriceParam ? Number(maxPriceParam) : 0,
+    minSqft:  minSqftParam  ? Number(minSqftParam)  : 0,
+  };
 
   const [properties, setProperties] = useState<PropertyListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const [compareIds, setCompareIds] = useState<number[]>([]);
-  const [view, setView] = useState<"grid" | "map">("grid");
+  const [view, setView]             = useState<"grid" | "map">("grid");
 
+  // ── Fetch ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const searchParams = {
-      city: city || undefined,
-      beds: beds ? Number(beds) : undefined,
-      max_price: maxPrice ? Number(maxPrice) : undefined,
+    const params = {
+      city:         city || undefined,
+      state:        stateCode || undefined,
+      zip_code:     zipCode || undefined,
+      beds:         bedsParam ? Number(bedsParam) : undefined,
+      min_baths:    minBathsParam ? Number(minBathsParam) : undefined,
+      min_price:    minPriceParam ? Number(minPriceParam) : undefined,
+      max_price:    maxPriceParam ? Number(maxPriceParam) : undefined,
+      property_type: propertyType || undefined,
+      min_sqft:     minSqftParam ? Number(minSqftParam) : undefined,
     };
-    searchProperties(searchParams)
+    searchProperties(params)
       .then((props) => {
         setProperties(props);
-        // Re-fetch once after 8s to pick up photos loaded by background tasks
         const t = setTimeout(() => {
-          searchProperties(searchParams).then(setProperties).catch(() => {});
+          searchProperties(params).then(setProperties).catch(() => {});
         }, 8000);
         return () => clearTimeout(t);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [city, beds, maxPrice]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city, zipCode, stateCode, bedsParam, minBathsParam, minPriceParam, maxPriceParam, propertyType, minSqftParam]);
 
+  // ── Filter change → URL update ───────────────────────────────────────────
+  const handleFilterChange = useCallback((f: FilterState) => {
+    const p = new URLSearchParams(searchParams.toString());
+    const set = (key: string, val: string | number | undefined) => {
+      if (val) p.set(key, String(val)); else p.delete(key);
+    };
+    set("property_type", f.propertyType || undefined);
+    set("beds",          f.minBeds  || undefined);
+    set("min_baths",     f.minBaths || undefined);
+    set("min_price",     f.minPrice || undefined);
+    set("max_price",     f.maxPrice || undefined);
+    set("min_sqft",      f.minSqft  || undefined);
+    router.replace(`/listings?${p.toString()}`);
+  }, [router, searchParams]);
+
+  // ── Compare ─────────────────────────────────────────────────────────────────
   const toggleCompare = useCallback((id: number) => {
     setCompareIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(0, 4)
@@ -54,45 +100,63 @@ function ListingsContent() {
   }, []);
 
   const goCompare = () => {
-    if (compareIds.length >= 2) {
-      router.push(`/compare?ids=${compareIds.join(",")}`);
-    }
+    if (compareIds.length >= 2) router.push(`/compare?ids=${compareIds.join(",")}`);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top bar */}
+      {/* ── Top bar ── */}
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <a href="/" className="font-black text-xl shrink-0">
             Spec<span className="text-primary">House</span>
           </a>
           <div className="flex-1 min-w-0">
-            <SearchBar defaultCity={city} defaultBeds={beds} defaultMaxPrice={maxPrice} />
+            <SearchBar defaultCity={zipCode || city} defaultBeds={bedsParam} defaultMaxPrice={maxPriceParam} />
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant={view === "grid" ? "default" : "outline"}
-              onClick={() => setView("grid")}
-            >
+            <Button size="sm" variant={view === "grid" ? "default" : "outline"} onClick={() => setView("grid")}>
               Grid
             </Button>
-            <Button
-              size="sm"
-              variant={view === "map" ? "default" : "outline"}
-              onClick={() => setView("map")}
-            >
+            <Button size="sm" variant={view === "map"  ? "default" : "outline"} onClick={() => setView("map")}>
               Map
             </Button>
           </div>
         </div>
+
+        {/* ── Filter bar ── */}
+        <div className="container mx-auto px-4 pb-3 overflow-x-auto">
+          <FilterBar value={filterValue} onChange={handleFilterChange} />
+        </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 flex-1">
+      <div className="container mx-auto px-4 py-4 flex-1">
+        {/* AI query badge */}
+        {aiQuery && (
+          <div className="flex items-center gap-2 mb-4 text-sm bg-primary/5 border border-primary/20 rounded-full px-3 py-1.5 w-fit">
+            <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="text-primary font-medium">AI: {aiQuery}</span>
+            <button
+              onClick={() => {
+                const p = new URLSearchParams(searchParams.toString());
+                p.delete("ai_query");
+                router.replace(`/listings?${p.toString()}`);
+              }}
+              className="text-muted-foreground hover:text-foreground ml-1"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         {/* Result count */}
         <div className="mb-4 text-sm text-muted-foreground">
-          {loading ? "Searching…" : error ? null : `${properties.length} properties found in ${city}`}
+          {loading
+            ? "Searching…"
+            : error
+              ? null
+              : `${properties.length} properties found${searchLabel ? ` in ${searchLabel}` : ""}`
+          }
         </div>
 
         {error && (
@@ -130,9 +194,7 @@ function ListingsContent() {
       {/* Floating compare tray */}
       {compareIds.length > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-background border rounded-full shadow-xl px-5 py-3">
-          <span className="text-sm font-medium">
-            {compareIds.length} selected
-          </span>
+          <span className="text-sm font-medium">{compareIds.length} selected</span>
           <Button size="sm" onClick={goCompare} disabled={compareIds.length < 2}>
             <GitCompareArrows className="w-4 h-4 mr-1" />
             Compare

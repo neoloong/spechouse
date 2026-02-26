@@ -32,6 +32,13 @@ export interface PropertyDetail extends PropertyListItem {
   created_at?: string;
 }
 
+export interface SchoolEntry {
+  name: string;
+  type: string;
+  distance_mi?: number;
+  level?: string | null;
+}
+
 export interface AggData {
   rental?: {
     estimate?: number;
@@ -48,6 +55,7 @@ export interface AggData {
     value?: number;
     investment?: number;
   };
+  schools?: SchoolEntry[];
   comparisons?: Record<string, unknown>;
 }
 
@@ -82,6 +90,9 @@ export interface PropertySpec {
   score_overall?: number;
   score_value?: number;
   score_investment?: number;
+  // Schools
+  schools_count?: number;
+  nearest_school?: string;
 }
 
 export interface CompareResponse {
@@ -93,9 +104,25 @@ export interface SearchParams {
   state?: string;
   zip_code?: string;
   beds?: number;
+  min_baths?: number;
+  min_price?: number;
   max_price?: number;
   property_type?: string;
+  min_sqft?: number;
+  max_sqft?: number;
   limit?: number;
+}
+
+export interface ParsedSearch {
+  city?: string;
+  state?: string;
+  beds?: number;
+  baths?: number;
+  min_price?: number;
+  max_price?: number;
+  property_type?: string;
+  min_sqft?: number;
+  parsed_summary?: string;
 }
 
 async function fetchJson<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T> {
@@ -124,6 +151,10 @@ export async function getProperty(id: number): Promise<PropertyDetail> {
 
 export async function compareProperties(ids: number[]): Promise<CompareResponse> {
   return fetchJson<CompareResponse>("/compare", { ids: ids.join(",") });
+}
+
+export async function parseSearch(q: string): Promise<ParsedSearch> {
+  return fetchJson<ParsedSearch>("/search/parse", { q });
 }
 
 export function fmt(n: number | undefined | null, style: "currency" | "decimal" | "percent" = "decimal", decimals = 0): string {

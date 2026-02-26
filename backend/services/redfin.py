@@ -109,11 +109,36 @@ def _bbox_to_poly(lat_min: float, lat_max: float, lng_min: float, lng_max: float
     )
 
 
+# Maps our property_type strings to Redfin uipt codes
+_REDFIN_UIPT = {
+    "house": "1",
+    "condo": "2",
+    "townhouse": "3",
+    "multi-family": "4",
+    "land": "5",
+    "mobile": "7",
+}
+
+# Maps our property_type to patterns used to post-filter parsed results
+_PTYPE_FILTER = {
+    "house": lambda t: "single" in t.lower() or "house" in t.lower() or t.lower() in ("house",),
+    "condo": lambda t: "condo" in t.lower(),
+    "townhouse": lambda t: "townhouse" in t.lower(),
+    "multi-family": lambda t: "multi" in t.lower(),
+    "land": lambda t: "land" in t.lower(),
+    "mobile": lambda t: "mobile" in t.lower(),
+}
+
+
 async def search_listings(
     city: str,
     state: Optional[str] = None,
     beds_min: Optional[int] = None,
+    baths_min: Optional[float] = None,
+    price_min: Optional[float] = None,
     price_max: Optional[float] = None,
+    property_type: Optional[str] = None,
+    sqft_min: Optional[int] = None,
     limit: int = 20,
 ) -> List[dict]:
     """
@@ -130,20 +155,31 @@ async def search_listings(
     lat_min, lat_max, lng_min, lng_max = bbox
     poly = _bbox_to_poly(lat_min, lat_max, lng_min, lng_max)
 
+    # Build uipt (property type filter) for Redfin
+    uipt = _REDFIN_UIPT.get(property_type or "", "") if property_type else "1,2,3,4"
+    if not uipt:
+        uipt = "1,2,3,4"
+
     params = {
         "al": 1,
-        "num_homes": min(limit, 40),
+        "num_homes": min(limit, 350),
         "ord": "redfin-recommended-asc",
         "page_number": 1,
         "start": 0,
-        "uipt": "1,2,3,4",
+        "uipt": uipt,
         "v": 8,
         "poly": poly,
     }
     if beds_min:
         params["min_num_beds"] = beds_min
+    if baths_min:
+        params["min_num_baths"] = baths_min
+    if price_min:
+        params["min_price"] = int(price_min)
     if price_max:
         params["max_price"] = int(price_max)
+    if sqft_min:
+        params["min_listing_sqft"] = sqft_min
 
     try:
         async with httpx.AsyncClient(
@@ -166,6 +202,11 @@ async def search_listings(
     if not results:
         logger.info(f"gis-csv returned no rows for '{geo_query}', trying JSON gis endpoint")
         results = await _search_gis_json(params)
+
+    # Post-filter by property_type if specified (belt-and-suspenders)
+    if property_type and property_type in _PTYPE_FILTER:
+        fn = _PTYPE_FILTER[property_type]
+        results = [r for r in results if fn(r.get("property_type") or "")]
 
     logger.info(f"Redfin returned {len(results)} listings for '{geo_query}'")
     return results

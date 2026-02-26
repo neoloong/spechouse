@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     HOWLOUD_API_KEY: str = ""
     HOWLOUD_CLIENT_ID: str = ""
     SPOTCRIME_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
     NEXT_PUBLIC_API_URL: str = "http://localhost:8000"
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")

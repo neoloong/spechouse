@@ -46,6 +46,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const rental = agg.rental ?? {};
   const env = agg.environment ?? {};
   const scores = agg.scores ?? {};
+  const schools = agg.schools ?? [];
   const redfinUrl: string | undefined = (agg as Record<string, unknown>)._redfin_url as string | undefined;
 
   const pricePerSqft =
@@ -195,6 +196,35 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               )
             }
           />
+        </Section>
+
+        {/* Schools */}
+        <Section title="Nearby Schools">
+          {schools.length === 0 ? (
+            <div className="py-3 text-sm text-muted-foreground">
+              School data will appear after enrichment completes.
+            </div>
+          ) : (
+            schools.map((s, i) => (
+              <Row
+                key={i}
+                label={
+                  s.type === "university" ? "University" :
+                  s.type === "college" ? "College" : "School"
+                }
+                value={
+                  <span>
+                    {s.name}
+                    {s.distance_mi != null && (
+                      <span className="text-muted-foreground font-normal ml-2 text-xs">
+                        {s.distance_mi} mi
+                      </span>
+                    )}
+                  </span>
+                }
+              />
+            ))
+          )}
         </Section>
 
         <Separator className="my-6" />

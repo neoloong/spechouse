@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import properties, compare, enrich
+from backend.routers import properties, compare, enrich, search_ai
 
 app = FastAPI(
     title="SpecHouse API",
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(properties.router)
 app.include_router(compare.router)
 app.include_router(enrich.router)
+app.include_router(search_ai.router)
 
 
 @app.get("/health")

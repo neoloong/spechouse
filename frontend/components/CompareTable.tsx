@@ -15,6 +15,7 @@ interface SpecRow {
   format?: (v: number) => string;
   higherIsBetter?: boolean; // true = green for highest, false = green for lowest
   isText?: boolean;
+  renderCell?: (p: PropertySpec) => React.ReactNode; // custom per-cell renderer
 }
 
 const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
@@ -46,9 +47,26 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
   {
     title: "Environment",
     rows: [
-      { label: "Noise Level (dB)", key: "noise_db", format: (v) => `${v.toFixed(0)} dB`, higherIsBetter: false },
-      { label: "Noise Label", key: "noise_label", isText: true },
+      {
+        label: "Noise Level",
+        key: "noise_db",
+        higherIsBetter: false,
+        renderCell: (p) => {
+          const db = p.noise_db;
+          const label = p.noise_label;
+          if (db == null && !label) return "—";
+          if (db == null) return label ?? "—";
+          return label ? `${db.toFixed(0)} dB — ${label}` : `${db.toFixed(0)} dB`;
+        },
+      },
       { label: "Crime Score", key: "crime_score", format: (v) => `${v.toFixed(0)}/100`, higherIsBetter: false },
+    ],
+  },
+  {
+    title: "Schools",
+    rows: [
+      { label: "Schools within 3mi", key: "schools_count", higherIsBetter: true },
+      { label: "Nearest School", key: "nearest_school", isText: true },
     ],
   },
   {
@@ -169,7 +187,9 @@ export default function CompareTable({ properties }: Props) {
                           : getCellHighlight(raw, rawValues, row.higherIsBetter);
 
                         let display: React.ReactNode = "—";
-                        if (raw != null) {
+                        if (row.renderCell) {
+                          display = row.renderCell(p) ?? "—";
+                        } else if (raw != null) {
                           if (row.isText) {
                             display = String(raw);
                           } else if (row.key.startsWith("score_") && typeof raw === "number") {
