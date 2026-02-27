@@ -236,6 +236,10 @@ async def search_properties(
     )
     if cached:
         logger.info(f"Cache hit for city={city} — skipping Redfin call")
+        # Still enrich any cached properties that are missing schools data
+        for prop in cached:
+            if "schools" not in (prop.agg_data or {}):
+                background_tasks.add_task(_enrich_property, prop.id)
         return cached
 
     # ── Redfin (free, no API key needed) ─────────────────────────────────────
@@ -266,7 +270,12 @@ async def search_properties(
         if not parsed.get("external_id"):
             continue
         prop = await _upsert_property(db, parsed)
-        if prop.last_enriched is None:
+        # Re-enrich if never enriched, or if schools data is missing (added later)
+        needs_enrich = (
+            prop.last_enriched is None
+            or "schools" not in (prop.agg_data or {})
+        )
+        if needs_enrich:
             background_tasks.add_task(_enrich_property, prop.id)
         props.append(prop)
 

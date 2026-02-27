@@ -5,11 +5,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
-import FilterBar, { FilterState, DEFAULT_FILTERS } from "@/components/FilterBar";
+import FilterBar, { FilterState } from "@/components/FilterBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { searchProperties, type PropertyListItem } from "@/lib/api";
-import { GitCompareArrows, Sparkles, X } from "lucide-react";
+import { useCompare } from "@/hooks/useCompare";
+import { Sparkles, X } from "lucide-react";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -43,10 +44,11 @@ function ListingsContent() {
     minSqft:  minSqftParam  ? Number(minSqftParam)  : 0,
   };
 
+  const { ids: compareIds, toggle: toggleCompare } = useCompare();
+
   const [properties, setProperties] = useState<PropertyListItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [compareIds, setCompareIds] = useState<number[]>([]);
   const [view, setView]             = useState<"grid" | "map">("grid");
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
@@ -92,16 +94,6 @@ function ListingsContent() {
     router.replace(`/listings?${p.toString()}`);
   }, [router, searchParams]);
 
-  // ── Compare ─────────────────────────────────────────────────────────────────
-  const toggleCompare = useCallback((id: number) => {
-    setCompareIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id].slice(0, 4)
-    );
-  }, []);
-
-  const goCompare = () => {
-    if (compareIds.length >= 2) router.push(`/compare?ids=${compareIds.join(",")}`);
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -191,19 +183,6 @@ function ListingsContent() {
         )}
       </div>
 
-      {/* Floating compare tray */}
-      {compareIds.length > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-background border rounded-full shadow-xl px-5 py-3">
-          <span className="text-sm font-medium">{compareIds.length} selected</span>
-          <Button size="sm" onClick={goCompare} disabled={compareIds.length < 2}>
-            <GitCompareArrows className="w-4 h-4 mr-1" />
-            Compare
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setCompareIds([])}>
-            Clear
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,10 +3,11 @@ import Link from "next/link";
 import { getProperty, fmt, type PropertyDetail } from "@/lib/api";
 import ScoreBadge from "@/components/ScoreBadge";
 import BackButton from "@/components/BackButton";
+import AddToCompareButton from "@/components/AddToCompareButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { GitCompareArrows, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 interface RowProps {
   label: string;
@@ -101,12 +102,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-3xl font-black">{fmt(property.list_price, "currency")}</p>
-            <Link href={`/compare?ids=${property.id}`}>
-              <Button size="sm" variant="outline">
-                <GitCompareArrows className="w-4 h-4 mr-1" />
-                Add to compare
-              </Button>
-            </Link>
+            <AddToCompareButton propertyId={property.id} />
             {redfinUrl && (
               <a href={redfinUrl} target="_blank" rel="noopener noreferrer">
                 <Button size="sm" variant="outline">
