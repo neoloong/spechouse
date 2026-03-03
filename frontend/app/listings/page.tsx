@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { searchProperties, type PropertyListItem } from "@/lib/api";
 import { useCompare } from "@/hooks/useCompare";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, RefreshCw } from "lucide-react";
+import { analytics } from "@/lib/analytics";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -66,13 +67,35 @@ function ListingsContent() {
       property_type: propertyType || undefined,
       min_sqft:     minSqftParam ? Number(minSqftParam) : undefined,
     };
+
+    // Track search event
+    analytics.trackSearch({
+      city: city || undefined,
+      zipCode: zipCode || undefined,
+      beds: bedsParam ? Number(bedsParam) : undefined,
+      maxPrice: maxPriceParam ? Number(maxPriceParam) : undefined,
+      propertyType: propertyType || undefined,
+    });
+    
+    // Optimistic: show empty state immediately, load in background
     searchProperties(params)
       .then((props) => {
         setProperties(props);
-        const t = setTimeout(() => {
-          searchProperties(params).then(setProperties).catch(() => {});
-        }, 8000);
-        return () => clearTimeout(t);
+        // If any props are missing photos, poll to pick them up as enrichment completes
+        const missingPhotos = props.some((p) => !p.photo_url);
+        if (missingPhotos) {
+          const t = setTimeout(() => {
+            searchProperties(params).then((updated) => {
+              setProperties((prev) =>
+                prev.map((p) => {
+                  const u = updated.find((x) => x.id === p.id);
+                  return u?.photo_url ? { ...p, photo_url: u.photo_url, agg_data: u.agg_data } : p;
+                })
+              );
+            }).catch(() => {});
+          }, 7000);
+          return () => clearTimeout(t);
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -142,13 +165,42 @@ function ListingsContent() {
         )}
 
         {/* Result count */}
-        <div className="mb-4 text-sm text-muted-foreground">
-          {loading
-            ? "Searching…"
-            : error
-              ? null
-              : `${properties.length} properties found${searchLabel ? ` in ${searchLabel}` : ""}`
-          }
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {loading
+              ? "Searching…"
+              : error
+                ? null
+                : `${properties.length} properties found${searchLabel ? ` in ${searchLabel}` : ""}`
+            }
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => {
+              setLoading(true);
+              const params = {
+                city: city || undefined,
+                state: stateCode || undefined,
+                zip_code: zipCode || undefined,
+                beds: bedsParam ? Number(bedsParam) : undefined,
+                min_baths: minBathsParam ? Number(minBathsParam) : undefined,
+                min_price: minPriceParam ? Number(minPriceParam) : undefined,
+                max_price: maxPriceParam ? Number(maxPriceParam) : undefined,
+                property_type: propertyType || undefined,
+                min_sqft: minSqftParam ? Number(minSqftParam) : undefined,
+              };
+              searchProperties(params)
+                .then(setProperties)
+                .catch((e) => setError(e.message))
+                .finally(() => setLoading(false));
+            }}
+            disabled={loading}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {error && (

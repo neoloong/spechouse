@@ -33,7 +33,12 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           ) : (
-            <div className="w-full h-full animate-pulse bg-gradient-to-r from-muted via-muted/60 to-muted" />
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-muted to-muted/60 gap-2">
+              <span className="text-4xl">🏠</span>
+              <span className="text-xs text-muted-foreground px-4 text-center line-clamp-2 leading-tight">
+                {p.address_display.split(",")[0]}
+              </span>
+            </div>
           )}
           <div className="absolute top-2 right-2">
             <ScoreBadge score={scores?.overall} size="sm" />
@@ -54,7 +59,14 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
         </div>
 
         {/* Price */}
-        <p className="text-xl font-bold mt-1">{fmt(p.list_price, "currency")}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-xl font-bold">{fmt(p.list_price, "currency")}</p>
+          {p.status && p.status !== "for_sale" && (
+            <Badge variant={p.status === "sold" ? "destructive" : "secondary"} className="text-xs">
+              {p.status === "sold" ? "Sold" : p.status === "pending" ? "Pending" : p.status === "for_rent" ? "For Rent" : p.status}
+            </Badge>
+          )}
+        </div>
 
         {/* Specs row */}
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-sm text-muted-foreground">
@@ -67,6 +79,15 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
             </Badge>
           )}
         </div>
+        
+        {/* Freshness */}
+        {p.last_enriched && (() => {
+          const days = Math.floor((Date.now() - new Date(p.last_enriched).getTime()) / (1000 * 60 * 60 * 24));
+          if (days > 7) {
+            return <p className="text-xs text-orange-500 mt-1">⚠️ Data may be outdated ({days}d old)</p>;
+          }
+          return null;
+        })()}
 
         {/* Enrichment signals */}
         {(rental?.estimate || env?.noise_label) && (

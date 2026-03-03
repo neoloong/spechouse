@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Sparkles } from "lucide-react";
 import { parseSearch } from "@/lib/api";
 
 interface Props {
@@ -23,11 +23,46 @@ export default function SearchBar({ defaultCity = "", defaultBeds = "", defaultM
   const [beds, setBeds] = useState(defaultBeds);
   const [maxPrice, setMaxPrice] = useState(defaultMaxPrice);
   const [parsing, setParsing] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Debounce: auto-search after 800ms of typing (for quick city/ZIP searches)
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  const handleInputChange = (value: string) => {
+    setCity(value);
+    
+    // Cancel previous timer
+    if (debounceTimer) clearTimeout(debounceTimer);
+    
+    // Skip debounce for complex NL queries (let user finish typing)
+    if (value.trim().length >= 3 && !isNLQuery(value)) {
+      const timer = setTimeout(() => {
+        const params = new URLSearchParams();
+        if (/^\d{5}$/.test(value.trim())) {
+          params.set("zip_code", value.trim());
+        } else {
+          params.set("city", value.trim());
+        }
+        if (beds) params.set("beds", beds);
+        if (maxPrice) params.set("max_price", maxPrice);
+        startTransition(() => {
+          router.push(`/listings?${params.toString()}`);
+        });
+      }, 800);
+      setDebounceTimer(timer);
+    }
+  };
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const q = city.trim();
     if (!q) return;
+
+    // Cancel debounce timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      setDebounceTimer(null);
+    }
 
     const params = new URLSearchParams();
 
@@ -70,13 +105,21 @@ export default function SearchBar({ defaultCity = "", defaultBeds = "", defaultM
 
   return (
     <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 w-full max-w-2xl">
-      <Input
-        placeholder='City, ZIP, or try "3br house in Austin under $600k"'
-        value={city}
-        onChange={(e) => setCity(e.target.value)}
-        className="flex-1 h-12 text-base"
-        required
-      />
+      <div className="flex-1 relative">
+        <Input
+          placeholder='City, ZIP, or try "3br house in Austin under $600k"'
+          value={city}
+          onChange={(e) => handleInputChange(e.target.value)}
+          className="flex-1 h-12 text-base pr-10"
+          required
+        />
+        {/* AI detection indicator */}
+        {city.trim().length > 3 && isNLQuery(city) && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" title="AI will parse this query">
+            <Sparkles className="w-4 h-4" />
+          </div>
+        )}
+      </div>
       <Input
         placeholder="Min beds"
         type="number"
@@ -94,11 +137,11 @@ export default function SearchBar({ defaultCity = "", defaultBeds = "", defaultM
         onChange={(e) => setMaxPrice(e.target.value)}
         className="w-36 h-12 text-base"
       />
-      <Button type="submit" size="lg" className="h-12 px-6" disabled={parsing}>
-        {parsing ? (
+      <Button type="submit" size="lg" className="h-12 px-6" disabled={parsing || isPending}>
+        {parsing || isPending ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Parsing…
+            {parsing ? "Parsing…" : "Loading…"}
           </>
         ) : (
           <>

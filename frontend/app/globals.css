@@ -125,3 +125,15 @@
     @apply bg-background text-foreground;
   }
 }
+/* Print styles */
+@media print {
+  header, footer, .no-print {
+    display: none !important;
+  }
+  body {
+    font-size: 12px;
+  }
+  .print-break {
+    page-break-inside: avoid;
+  }
+}

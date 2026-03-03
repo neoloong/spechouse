@@ -21,6 +21,8 @@ export interface PropertyListItem {
   photo_url?: string;
   photos?: string[];
   agg_data: AggData;
+  status?: string;
+  last_enriched?: string;
 }
 
 export interface PropertyDetail extends PropertyListItem {
@@ -57,11 +59,23 @@ export interface AggData {
   };
   schools?: SchoolEntry[];
   comparisons?: Record<string, unknown>;
+  crime?: {
+    safety_score?: number;
+    label?: string;
+    violent_count?: number;
+    total_count?: number;
+    radius_miles?: number;
+    period_days?: number;
+    source?: string;
+  };
+  lifestyle?: Record<string, { score: number; label: string; description: string }>;
 }
 
 export interface PropertySpec {
   id: number;
+  external_id?: string;
   address_display: string;
+  photo_url?: string;
   city?: string;
   state?: string;
   zip_code?: string;
@@ -84,8 +98,14 @@ export interface PropertySpec {
   property_tax?: number;
   // Environment
   noise_db?: number;
+  noise_score?: number;
   noise_label?: string;
   crime_score?: number;
+  crime_label?: string;
+  // Schools
+  school_elementary?: string;
+  school_middle?: string;
+  school_high?: string;
   // Scores
   score_overall?: number;
   score_value?: number;
@@ -134,7 +154,7 @@ async function fetchJson<T>(path: string, params?: Record<string, string | numbe
       }
     }
   }
-  const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+  const res = await fetch(url.toString(), { next: { revalidate: 60 }, headers: { "ngrok-skip-browser-warning": "true" } });
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${await res.text()}`);
   }
@@ -151,6 +171,10 @@ export async function getProperty(id: number): Promise<PropertyDetail> {
 
 export async function compareProperties(ids: number[]): Promise<CompareResponse> {
   return fetchJson<CompareResponse>("/compare", { ids: ids.join(",") });
+}
+
+export async function compareByExternalIds(eids: string[]): Promise<CompareResponse> {
+  return fetchJson<CompareResponse>("/compare", { eids: eids.join(",") });
 }
 
 export async function parseSearch(q: string): Promise<ParsedSearch> {

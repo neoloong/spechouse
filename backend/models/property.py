@@ -36,6 +36,7 @@ class PropertyORM(Base):
     agg_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     geom: Mapped[Any] = mapped_column(Geography("POINT", 4326), nullable=True)
     last_enriched: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    status: Mapped[Optional[str]] = mapped_column(String(20), default="for_sale")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 
@@ -114,5 +115,7 @@ class PropertyListItem(BaseModel):
     photo_url: Optional[str] = None
     photos: list = Field(default_factory=list)
     agg_data: dict = Field(default_factory=dict)
+    status: Optional[str] = None
+    last_enriched: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

@@ -1,5 +1,27 @@
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
 import Link from "next/link";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const property = await getProperty(Number(id));
+    const { address_display, city, state, list_price, beds, baths, sqft } = property;
+    const title = `${address_display} - ${list_price ? `$${list_price.toLocaleString()}` : 'For Sale'} | SpecHouse`;
+    const description = `${beds} bed, ${baths} bath, ${sqft?.toLocaleString() || '?'} sqft ${property.property_type || 'home'} in ${city}, ${state}. Compare prices, schools, noise, and crime on SpecHouse.`;
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        type: 'website',
+      },
+    };
+  } catch {
+    return { title: "Property Not Found" };
+  }
+}
 import { getProperty, fmt, type PropertyDetail } from "@/lib/api";
 import ScoreBadge from "@/components/ScoreBadge";
 import BackButton from "@/components/BackButton";
@@ -47,7 +69,53 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const rental = agg.rental ?? {};
   const env = agg.environment ?? {};
   const scores = agg.scores ?? {};
-  const schools = agg.schools ?? [];
+  const crimeData = agg.crime ?? null;
+  const lifestyle = agg.lifestyle ?? {};
+  const allSchools = agg.schools ?? [];
+
+  // Extract noise score from lifestyle data (quiet_area, silent_zone, low_noise)
+  const noiseKeys = ["silent_zone", "quiet_area", "low_noise", "noisy_area", "some_noise"];
+  const noiseData = noiseKeys
+    .map((k) => lifestyle[k])
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)[0] || null;
+  const noiseLevel = noiseData
+    ? `${noiseData.score.toFixed(0)}/10 (${noiseData.label})`
+    : null;
+
+  // Filter to K-12 only, pick one per level (elementary/middle/high)
+  const inferLevel = (s: { name: string; level?: string | null; type: string }): "elementary" | "middle" | "high" | null => {
+    // Redfin assigned schools already have type set correctly
+    if (s.type === "elementary") return "elementary";
+    if (s.type === "middle") return "middle";
+    if (s.type === "high") return "high";
+    if (s.type === "college" || s.type === "university") return null;
+    // OSM fallback: parse numeric level field
+    if (s.level) {
+      const parts = s.level.split(",").map(Number);
+      if (parts.includes(3)) return "high";
+      if (parts.includes(2)) return "middle";
+      if (parts.includes(0) || parts.includes(1)) return "elementary";
+    }
+    const n = s.name.toLowerCase();
+    if (n.includes("high school") || n.includes("senior high")) return "high";
+    if (n.includes("middle") || n.includes("junior high")) return "middle";
+    if (n.includes("elementary") || n.includes("primary") || n.includes("grammar")) return "elementary";
+    return null;
+  };
+
+  const schoolsByLevel: { elementary?: typeof allSchools[0]; middle?: typeof allSchools[0]; high?: typeof allSchools[0] } = {};
+  for (const s of allSchools) {
+    const lvl = inferLevel(s);
+    if (lvl && !schoolsByLevel[lvl]) schoolsByLevel[lvl] = s;
+  }
+  const schools = [
+    schoolsByLevel.elementary && { ...schoolsByLevel.elementary, _level: "Elementary" },
+    schoolsByLevel.middle && { ...schoolsByLevel.middle, _level: "Middle School" },
+    schoolsByLevel.high && { ...schoolsByLevel.high, _level: "High School" },
+  ].filter(Boolean) as (typeof allSchools[0] & { _level: string })[];
+  // Only show schools that have ratings (from Redfin)
+  const schoolsWithRatings = schools.filter(s => (s as { rating?: number }).rating != null);
   const redfinUrl: string | undefined = (agg as Record<string, unknown>)._redfin_url as string | undefined;
 
   const pricePerSqft =
@@ -166,53 +234,66 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <Row
             label="Noise Level"
             value={
-              env.noise_db != null ? (
-                <span>
-                  {env.noise_db.toFixed(0)} dB
-                  {env.noise_label && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {env.noise_label}
-                    </Badge>
-                  )}
+              noiseData ? (
+                <span className="flex items-center gap-2">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${
+                    noiseData.score >= 8 ? "bg-emerald-100 text-emerald-800" :
+                    noiseData.score >= 6 ? "bg-green-100 text-green-800" :
+                    noiseData.score >= 4 ? "bg-yellow-100 text-yellow-800" :
+                    "bg-red-100 text-red-800"
+                  }`}>{noiseData.label}</span>
+                  <span>{noiseData.score.toFixed(0)}/10</span>
                 </span>
               ) : (
-                <span className="text-muted-foreground text-xs">
-                  N/A — set HOWLOUD_API_KEY to enable
-                </span>
+                <span className="text-muted-foreground">N/A</span>
               )
             }
           />
           <Row
-            label="Crime Score"
+            label="Crime"
             value={
-              env.crime_score != null ? (
-                <span>{env.crime_score.toFixed(0)} / 100 (lower = safer)</span>
+              crimeData ? (
+                <span className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${
+                    crimeData.label === "Low" ? "bg-emerald-100 text-emerald-800" :
+                    crimeData.label === "Moderate" ? "bg-yellow-100 text-yellow-800" :
+                    crimeData.label === "High" ? "bg-orange-100 text-orange-800" :
+                    "bg-red-100 text-red-800"
+                  }`}>{crimeData.label}</span>
+                  <span className="text-sm">{crimeData.safety_score}/100 safety</span>
+                  <span className="text-muted-foreground text-xs">({crimeData.violent_count} violent / {crimeData.total_count} total within 0.5mi)</span>
+                </span>
               ) : (
-                <span className="text-muted-foreground text-xs">N/A — coming soon</span>
+                <span className="text-muted-foreground">N/A</span>
               )
             }
           />
         </Section>
 
         {/* Schools */}
-        <Section title="Nearby Schools">
-          {schools.length === 0 ? (
+        <Section title="Schools in Area">
+          {schoolsWithRatings.length === 0 ? (
             <div className="py-3 text-sm text-muted-foreground">
               School data will appear after enrichment completes.
             </div>
           ) : (
-            schools.map((s, i) => (
+            schoolsWithRatings.map((s, i) => (
               <Row
                 key={i}
-                label={
-                  s.type === "university" ? "University" :
-                  s.type === "college" ? "College" : "School"
-                }
+                label={s._level}
                 value={
-                  <span>
-                    {s.name}
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {(s as unknown as { rating?: number }).rating != null && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                        {(s as unknown as { rating: number }).rating}/10
+                      </span>
+                    )}
+                    <span>{s.name}</span>
+                    {(s as unknown as { grade_range?: string }).grade_range && (
+                      <span className="text-muted-foreground text-xs">({(s as unknown as { grade_range: string }).grade_range})</span>
+                    )}
                     {s.distance_mi != null && (
-                      <span className="text-muted-foreground font-normal ml-2 text-xs">
+                      <span className="text-muted-foreground font-normal text-xs">
                         {s.distance_mi} mi
                       </span>
                     )}
@@ -229,6 +310,41 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           {property.last_enriched ? new Date(property.last_enriched).toLocaleDateString() : "pending"}
         </p>
       </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "RealEstateListing",
+            name: property.address_display,
+            description: `${property.beds} bed, ${property.baths} bath home in ${property.city}`,
+            url: `https://spechouse.vercel.app/property/${property.id}`,
+            address: {
+              "@type": "PostalAddress",
+              streetAddress: property.address_display,
+              addressLocality: property.city,
+              addressRegion: property.state,
+              postalCode: property.zip_code,
+            },
+            geo: {
+              "@type": "GeoCoordinates",
+              latitude: property.latitude,
+              longitude: property.longitude,
+            },
+            offers: {
+              "@type": "Offer",
+              price: property.list_price,
+              priceCurrency: "USD",
+            },
+            numberOfRooms: (property.beds || 0) + ((property.baths || 0) % 1 >= 0.5 ? 0.5 : 0),
+            floorSize: {
+              "@type": "QuantitativeValue",
+              value: property.sqft,
+              unitCode: "FTK",
+            },
+          }),
+        }}
+      />
     </div>
   );
 }

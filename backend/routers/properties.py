@@ -10,7 +10,7 @@ from datetime import datetime
 
 from backend.db import get_db, SessionLocal
 from backend.models.property import PropertyORM, PropertyListItem, PropertyOut
-from backend.services import howloud, scorer, redfin, schools as schools_svc
+from backend.services import howloud, scorer, redfin, schools as schools_svc, crime as crime_svc
 from backend.services.mock_data import MOCK_PROPERTIES, MOCK_AGG
 from backend.config import settings
 
@@ -19,7 +19,9 @@ router = APIRouter(prefix="/properties", tags=["properties"])
 
 
 def _use_mock() -> bool:
-    return not settings.RENTCAST_API_KEY or settings.RENTCAST_API_KEY.startswith("your_")
+    # Only use mock data if explicitly opted in via env var USE_MOCK_DATA=true
+    # Redfin scraping is free and requires no API key — use it by default
+    return str(getattr(settings, "USE_MOCK_DATA", "")).lower() == "true"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,11 +95,23 @@ async def _enrich_property(prop_id: int) -> None:
 
         noise_data: dict = {}
         schools_data: list = []
+        crime_data: Optional[dict] = None
+        redfin_url_for_schools = (prop.agg_data or {}).get("_redfin_url")
         if prop.latitude and prop.longitude:
-            noise_data, schools_data = await asyncio.gather(
-                howloud.get_noise(prop.latitude, prop.longitude),
-                schools_svc.get_nearby_schools(prop.latitude, prop.longitude),
-            )
+            if redfin_url_for_schools:
+                noise_data, schools_data, crime_data, lifestyle_data = await asyncio.gather(
+                    howloud.get_noise(prop.latitude, prop.longitude),
+                    schools_svc.fetch_redfin_schools(redfin_url_for_schools),
+                    crime_svc.get_crime_score(prop.latitude, prop.longitude, prop.city or "", prop.state or ""),
+                    schools_svc.fetch_redfin_lifestyle(redfin_url_for_schools),
+                )
+            else:
+                noise_data, schools_data, crime_data = await asyncio.gather(
+                    howloud.get_noise(prop.latitude, prop.longitude),
+                    schools_svc.get_nearby_schools(prop.latitude, prop.longitude),
+                    crime_svc.get_crime_score(prop.latitude, prop.longitude, prop.city or "", prop.state or ""),
+                )
+                lifestyle_data = {}
 
         new_agg = scorer.enrich_agg_data(
             current_agg=prop.agg_data or {},
@@ -110,6 +124,10 @@ async def _enrich_property(prop_id: int) -> None:
         )
         if schools_data:
             new_agg["schools"] = schools_data
+        if crime_data:
+            new_agg["crime"] = crime_data
+        if lifestyle_data:
+            new_agg["lifestyle"] = lifestyle_data
 
         # Fetch photo from Redfin listing page if still missing
         photo_url = prop.photo_url
@@ -294,3 +312,45 @@ async def get_property(
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
     return prop
+
+
+@router.post("/admin/re-enrich-schools")
+async def re_enrich_schools(db: AsyncSession = Depends(get_db), background_tasks: BackgroundTasks = None):
+    """Re-enrich schools data for all properties."""
+    stmt = select(PropertyORM)
+    result = await db.execute(stmt)
+    props = result.scalars().all()
+    count = 0
+    for prop in props:
+        if (prop.agg_data or {}).get("_redfin_url"):
+            background_tasks.add_task(_enrich_property, prop.id)
+            count += 1
+    return {"queued": count}
+
+
+@router.post("/admin/preload-cities")
+async def preload_cities(background_tasks: BackgroundTasks):
+    """Pre-load listings for popular cities in background."""
+    popular_cities = [
+        ("Miami", "FL"),
+        ("Los Angeles", "CA"),
+        ("San Jose", "CA"),
+        ("Denver", "CO"),
+        ("Austin", "TX"),
+        ("New York", "NY"),
+        ("Phoenix", "AZ"),
+        ("Chicago", "IL"),
+    ]
+    
+    async def fetch_city(city: str, state: str):
+        from backend.services import redfin
+        try:
+            listings = await redfin.search_listings(city, state, limit=50)
+            logger.info(f"Pre-loaded {len(listings)} listings for {city}, {state}")
+        except Exception as e:
+            logger.error(f"Failed to pre-load {city}, {state}: {e}")
+    
+    for city, state in popular_cities:
+        background_tasks.add_task(fetch_city, city, state)
+    
+    return {"queued": len(popular_cities), "cities": popular_cities}
