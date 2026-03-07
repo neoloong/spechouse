@@ -193,7 +193,8 @@ export function fmt(n: number | undefined | null, style: "currency" | "decimal" 
 
 export function scoreColor(score: number | undefined): string {
   if (score == null) return "bg-muted text-muted-foreground";
-  if (score >= 70) return "bg-emerald-100 text-emerald-800";
-  if (score >= 50) return "bg-yellow-100 text-yellow-800";
+  // Score is now on 0-10 scale
+  if (score >= 7) return "bg-emerald-100 text-emerald-800";
+  if (score >= 5) return "bg-yellow-100 text-yellow-800";
   return "bg-red-100 text-red-800";
 }

@@ -158,7 +158,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <div className="mb-8">
           <div className="flex flex-wrap items-start gap-3 mb-2">
             <h1 className="text-2xl font-bold flex-1 min-w-0">{property.address_display}</h1>
-            <ScoreBadge score={scores.overall} label="/100" />
+            <ScoreBadge score={scores?.overall} label="/10" />
           </div>
           <p className="text-muted-foreground mb-4">
             {[property.city, property.state, property.zip_code].filter(Boolean).join(", ")}
@@ -170,6 +170,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-3xl font-black">{fmt(property.list_price, "currency")}</p>
+            <Badge variant={property.status === "sold" ? "destructive" : "default"} className="bg-green-600">
+              {property.status === "sold" ? "Sold" : property.status === "pending" ? "Pending" : property.status === "for_rent" ? "For Rent" : "For Sale"}
+            </Badge>
             <AddToCompareButton propertyId={property.id} />
             {redfinUrl && (
               <a href={redfinUrl} target="_blank" rel="noopener noreferrer">
@@ -204,7 +207,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           ))}
         </div>
         <p className="text-xs text-muted-foreground mb-8 px-1">
-          Scores reflect available data. Missing noise/crime signals default to neutral (50).
+          Scores reflect available data. Missing noise/crime signals default to neutral (5.0).
           Expensive markets naturally score lower on rental yield — that&apos;s expected.
         </p>
 

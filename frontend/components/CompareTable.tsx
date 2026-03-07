@@ -42,6 +42,7 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
   {
     title: "Financials",
     rows: [
+      { label: "Status", key: "status", format: (v) => v === "for_sale" ? "For Sale" : v === "sold" ? "Sold" : v === "pending" ? "Pending" : v || "—" },
       { label: "List Price", key: "list_price", format: (v) => fmt(v, "currency"), higherIsBetter: false },
       { label: "Price / sqft", key: "price_per_sqft", format: (v) => `${fmt(v, "currency", 0)}/sqft`, higherIsBetter: false },
       { label: "Rental Estimate", key: "rental_estimate", format: (v) => `${fmt(v, "currency")}/mo`, higherIsBetter: true },

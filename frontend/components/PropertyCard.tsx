@@ -58,14 +58,12 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
           </Link>
         </div>
 
-        {/* Price */}
+        {/* Price & Status */}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-xl font-bold">{fmt(p.list_price, "currency")}</p>
-          {p.status && p.status !== "for_sale" && (
-            <Badge variant={p.status === "sold" ? "destructive" : "secondary"} className="text-xs">
-              {p.status === "sold" ? "Sold" : p.status === "pending" ? "Pending" : p.status === "for_rent" ? "For Rent" : p.status}
-            </Badge>
-          )}
+          <Badge variant={p.status === "sold" ? "destructive" : "default"} className="text-xs bg-green-600">
+            {p.status === "sold" ? "Sold" : p.status === "pending" ? "Pending" : p.status === "for_rent" ? "For Rent" : p.status === "for_sale" ? "For Sale" : p.status}
+          </Badge>
         </div>
 
         {/* Specs row */}
