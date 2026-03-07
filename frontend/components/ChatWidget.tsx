@@ -32,7 +32,7 @@ export default function ChatWidget() {
 // TypeScript declarations
 declare global {
   interface Window {
-    Tawk_API: any;
+    Tawk_API: Record<string, unknown>;
     Tawk_LoadStart: Date;
   }
 }
