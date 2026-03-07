@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import SearchBar from "@/components/SearchBar";
 import PropertyCard from "@/components/PropertyCard";
@@ -123,9 +124,9 @@ function ListingsContent() {
       {/* ── Top bar ── */}
       <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <a href="/" className="font-black text-xl shrink-0">
+          <Link href="/" className="font-black text-xl shrink-0">
             Spec<span className="text-primary">House</span>
-          </a>
+          </Link>
           <div className="flex-1 min-w-0">
             <SearchBar defaultCity={zipCode || city} defaultBeds={bedsParam} defaultMaxPrice={maxPriceParam} />
           </div>

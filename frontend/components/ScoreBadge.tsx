@@ -9,7 +9,7 @@ interface Props {
 
 export default function ScoreBadge({ score, label, size = "md" }: Props) {
   // Normalize from 0-100 to 0-10
-  const normalizedScore = score != null ? score / 10 : null;
+  const normalizedScore = score != null ? score / 10 : undefined;
   const colorClass = scoreColor(normalizedScore);
   return (
     <span

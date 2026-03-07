@@ -81,7 +81,8 @@ export interface PropertySpec {
   zip_code?: string;
   latitude?: number;
   longitude?: number;
-  // Financials
+  // Status
+  status?: string;
   list_price?: number;
   price_per_sqft?: number;
   rental_estimate?: number;
