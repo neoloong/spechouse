@@ -46,6 +46,8 @@ export interface AggData {
     estimate?: number;
     yield_pct?: number;
     cap_rate?: number;
+    source?: string;
+    zillow_city_median?: number;  // Zillow Q1 2025 city median for this bedroom count
   };
   environment?: {
     noise_db?: number;
@@ -88,6 +90,7 @@ export interface PropertySpec {
   rental_estimate?: number;
   rental_yield_pct?: number;
   cap_rate?: number;
+  zillow_city_median?: number;  // Zillow Q1 2025 city median for this bedroom count
   // Specs
   beds?: number;
   baths?: number;

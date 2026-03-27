@@ -56,6 +56,34 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
     ],
   },
   {
+    title: "Market Comparison",
+    rows: [
+      {
+        label: "Zillow City Median",
+        renderCell: (p) => p.zillow_city_median ? `${fmt(p.zillow_city_median, "currency")}/mo` : "—",
+        higherIsBetter: undefined,
+      },
+      {
+        label: "Our Model Est.",
+        key: "rental_estimate",
+        format: (v) => v != null ? `${fmt(v, "currency")}/mo` : "—",
+        higherIsBetter: undefined,
+      },
+      {
+        label: "vs. City Median",
+        renderCell: (p) => {
+          const our = p.rental_estimate;
+          const city = p.zillow_city_median;
+          if (!our || !city) return "—";
+          const diff = ((our - city) / city) * 100;
+          const cls = diff >= 0 ? "text-emerald-600" : diff < -10 ? "text-orange-500" : "text-yellow-600";
+          return `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}%`;
+        },
+        higherIsBetter: undefined,
+      },
+    ],
+  },
+  {
     title: "Property Specs",
     rows: [
       { label: "Bedrooms", key: "beds", higherIsBetter: true },

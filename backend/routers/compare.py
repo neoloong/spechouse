@@ -60,6 +60,7 @@ def _build_spec_row(prop: PropertyORM) -> dict:
         "rental_estimate": rental.get("estimate"),
         "rental_yield_pct": rental.get("yield_pct"),
         "cap_rate": rental.get("cap_rate"),
+        "zillow_city_median": rental.get("zillow_city_median"),
         "beds": prop.beds,
         "baths": float(prop.baths) if prop.baths else None,
         "sqft": prop.sqft,

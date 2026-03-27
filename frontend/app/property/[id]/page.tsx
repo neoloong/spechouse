@@ -222,6 +222,66 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <Row label="Annual Property Tax" value={property.property_tax ? fmt(property.property_tax, "currency") : "—"} />
         </Section>
 
+        {/* Market Comparison */}
+        {(() => {
+          const cityMedian = rental.zillow_city_median;
+          const ourEstimate = rental.estimate;
+          if (!cityMedian && !ourEstimate) return null;
+          const diff = ourEstimate && cityMedian
+            ? ((ourEstimate - cityMedian) / cityMedian) * 100
+            : null;
+          const diffLabel = diff !== null
+            ? `${diff >= 0 ? "+" : ""}${diff.toFixed(1)}% vs city median`
+            : null;
+          return (
+            <Section title="Market Comparison">
+              <Row
+                label="Zillow City Median (Q1 2025)"
+                value={cityMedian ? `${fmt(cityMedian, "currency")}/mo` : "—"}
+              />
+              <Row
+                label="Our Model Estimate"
+                value={ourEstimate ? `${fmt(ourEstimate, "currency")}/mo` : "—"}
+              />
+              {diffLabel && diff !== null && (
+                <Row
+                  label="vs. City Median"
+                  value={
+                    <span className={diff >= 0 ? "text-emerald-600 font-semibold" : "text-orange-500 font-semibold"}>
+                      {diffLabel}
+                      {diff < -10 && " ⚠️ underpriced rent"}
+                      {diff > 10 && " 🔺 above market rent"}
+                    </span>
+                  }
+                />
+              )}
+              {rental.source && rental.source !== "HUD FY2024 FMR" && (
+                <Row label="Data Source" value={rental.source} />
+              )}
+              {redfinUrl && (
+                <Row
+                  label="Redfin Estimate"
+                  value={
+                    <a href={redfinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                      View on Redfin →
+                    </a>
+                  }
+                />
+              )}
+              {zillowUrl && (
+                <Row
+                  label="Zillow Zestimate"
+                  value={
+                    <a href={zillowUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                      View on Zillow →
+                    </a>
+                  }
+                />
+              )}
+            </Section>
+          );
+        })()}
+
         {/* Property Specs */}
         <Section title="Property Specs">
           <Row label="Bedrooms" value={property.beds ?? "—"} />

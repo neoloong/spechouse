@@ -178,6 +178,29 @@ async def enrich_agg_data(
         except Exception as e:
             logger.debug(f"Rental model error: {e}")
 
+    # ── City median benchmark (Zillow Q1 2025) ─────────────────────────────────
+    # Always include the city median for this bedroom count as a benchmark
+    zillow_city_median: Optional[float] = None
+    try:
+        from backend.services.rental_model import _CITY_RENTS
+        city_key = (city or "").strip().lower()
+        # Resolve neighborhood → parent city
+        neighborhood_map = {
+            "santa monica": "los angeles",
+            "berkeley": "oakland",
+            "palo alto": "san jose", "mountain view": "san jose",
+            "sunnyvale": "san jose", "cupertino": "san jose",
+            "fremont": "oakland",
+            "manhattan": "new york", "brooklyn": "new york",
+            "queens": "new york", "bronx": "new york",
+        }
+        parent_city = neighborhood_map.get(city_key, city_key)
+        if parent_city in _CITY_RENTS and beds is not None:
+            br_key = max(0, min(beds, 4))
+            zillow_city_median = _CITY_RENTS[parent_city].get(br_key)
+    except Exception:
+        pass
+
     if not rental_estimate:
         rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
         source = "HUD FY2024 FMR"
@@ -194,6 +217,7 @@ async def enrich_agg_data(
         "yield_pct": rental_yield,
         "cap_rate": cap_rate,
         "source": source,
+        "zillow_city_median": zillow_city_median,
     }
 
     agg["environment"] = {

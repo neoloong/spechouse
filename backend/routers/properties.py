@@ -196,8 +196,20 @@ async def _cached_city_results(
     """Return DB-cached results if we already have data for this city/zip."""
     stmt = select(PropertyORM)
     if city:
-        city_base = city.split(",")[0].split()[0]
-        stmt = stmt.where(PropertyORM.city.ilike(f"%{city_base}%"))
+        # Parse "City, STATE" or "City STATE" → extract city words
+        raw_city = city.split(",")[0].strip()  # "San Francisco CA" or "San Francisco"
+        city_words = raw_city.split()
+        # Require ALL words to match (prevents "San" from matching "San Jose")
+        # Also exclude known state-code words
+        state_words = {"ca", "tx", "ny", "wa", "or", "co", "az", "nv", "fl", "il", "ma", "pa", "va", "md", "ga", "nc", "sc", "oh", "mi", "nj", "ct", "hi", "hi"}
+        city_words = [w for w in city_words if w.lower() not in state_words and len(w) > 2]
+        if len(city_words) >= 2:
+            # Multi-word city: "San Francisco" — all words must appear
+            for w in city_words:
+                stmt = stmt.where(PropertyORM.city.ilike(f"%{w}%"))
+        elif len(city_words) == 1:
+            # Single word: "Oakland" or "Austin" — prefix match
+            stmt = stmt.where(PropertyORM.city.ilike(f"{city_words[0]}%"))
     elif zip_code:
         stmt = stmt.where(PropertyORM.zip_code == zip_code)
     else:
