@@ -129,15 +129,18 @@ async def enrich_agg_data(
     city: Optional[str] = None,
     state: Optional[str] = None,
     beds: Optional[int] = None,
+    property_type: Optional[str] = None,
 ) -> dict:
     agg = dict(current_agg)
 
     # ── Rental estimate (3-tier priority) ───────────────────────────────────
     # 1. RentCast API (property-level, accurate) — if key configured
-    # 2. Self-built price-to-rent model (Redfin-derived, no API needed)
+    # 2. Self-built Zillow city median rent model (no API needed)
     # 3. HUD FMR (coarse metro-level, always free)
     rental_estimate: Optional[float] = None
     source = "—"
+
+    is_multi_family = property_type and "multi" in property_type.lower()
 
     key = _get_rentcast_key()
     if key:
@@ -145,7 +148,7 @@ async def enrich_agg_data(
             from backend.services import rentcast
             result = await rentcast.get_rental_estimate(
                 address=None, zip_code=None, beds=beds,
-                baths=None, sqft=sqft, property_type=None,
+                baths=None, sqft=sqft, property_type=property_type,
             )
             rental_estimate = float(result["rent"]) if result and "rent" in result else None
         except Exception as e:
@@ -153,16 +156,25 @@ async def enrich_agg_data(
 
     if not rental_estimate:
         try:
-            from backend.services.rental_model import estimate_rent
-            rental_estimate = estimate_rent(
-                list_price=list_price,
-                sqft=sqft,
-                beds=beds,
-                city=city,
-                state=state,
-            )
-            if rental_estimate:
-                source = "Price-to-Rent Model"
+            if is_multi_family:
+                from backend.services.rental_model import estimate_rent_multi_family
+                rental_estimate = estimate_rent_multi_family(
+                    list_price=list_price, sqft=sqft, beds=beds,
+                    city=city, state=state,
+                )
+                if rental_estimate:
+                    source = "Multi-Family Model"
+            else:
+                from backend.services.rental_model import estimate_rent
+                rental_estimate = estimate_rent(
+                    list_price=list_price,
+                    sqft=sqft,
+                    beds=beds,
+                    city=city,
+                    state=state,
+                )
+                if rental_estimate:
+                    source = "Price-to-Rent Model"
         except Exception as e:
             logger.debug(f"Rental model error: {e}")
 

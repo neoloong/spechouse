@@ -4,7 +4,7 @@ import asyncio
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, desc
 from geoalchemy2.functions import ST_MakePoint, ST_SetSRID
 from datetime import datetime
 
@@ -136,6 +136,7 @@ async def _enrich_property(prop_id: int) -> None:
             city=prop.city,
             state=prop.state,
             beds=prop.beds,
+            property_type=prop.property_type,
         )
         if schools_data:
             new_agg["schools"] = schools_data
@@ -217,7 +218,7 @@ async def _cached_city_results(
     if max_sqft:
         stmt = stmt.where(PropertyORM.sqft <= max_sqft)
 
-    stmt = stmt.limit(limit)
+    stmt = stmt.limit(limit).order_by(desc(PropertyORM.score))
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return list(rows) if rows else None

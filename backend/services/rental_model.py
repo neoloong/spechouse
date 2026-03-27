@@ -84,6 +84,7 @@ def estimate_rent(
     beds: Optional[int] = None,
     city: Optional[str] = None,
     state: Optional[str] = None,
+    property_type: Optional[str] = None,
 ) -> Optional[float]:
     """
     Estimate monthly rent using Zillow-derived city medians (Q1 2025).
@@ -107,12 +108,75 @@ def estimate_rent(
         if rent:
             return float(rent)
 
+    # ── Tier 1b: Known neighborhoods that inherit from parent metro ─────────────
+    # Santa Monica → Los Angeles (same rental market)
+    # Oakland / Berkeley → Oakland
+    # Berkeley / Palo Alto / Mountain View / Sunnyvale → San Jose
+    neighborhood_map = {
+        "santa monica": "los angeles",
+        "berkeley": "oakland",
+        "palo alto": "san jose",
+        "mountain view": "san jose",
+        "sunnyvale": "san jose",
+        "cupertino": "san jose",
+        "fremont": "oakland",
+        "new york": "new york",
+        "manhattan": "new york",
+        "brooklyn": "new york",
+        "queens": "new york",
+        "bronx": "new york",
+    }
+    if city_key in neighborhood_map:
+        parent = neighborhood_map[city_key]
+        if parent in _CITY_RENTS and beds is not None:
+            city_data = _CITY_RENTS[parent]
+            br_key = max(0, min(beds, 4))
+            rent = city_data.get(br_key)
+            if rent:
+                # Slight premium for premium neighborhoods
+                premium = 1.10 if city_key in ("santa monica", "palo alto", "mountain view", "cupertino") else 1.0
+                return round(float(rent) * premium, 0)
+
     # ── Tier 2: Price-to-Rent from list price ─────────────────────────────────
     if list_price and list_price > 50_000:
         ptr = _PTR_RATIOS.get(city_key, _DEFAULT_PTR)
         return round(list_price / ptr / 12, 0)
 
     return None
+
+
+def estimate_rent_multi_family(
+    list_price: Optional[float] = None,
+    sqft: Optional[int] = None,
+    beds: Optional[int] = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    units: Optional[int] = None,
+) -> Optional[float]:
+    """
+    Estimate rent for multi-family properties (2-20 units).
+    Uses per-unit rent × number of units.
+    """
+    city_key = (city or "").strip().lower()
+
+    # Get the per-unit rent for a typical 2BR unit in this city
+    if city_key in _CITY_RENTS:
+        per_unit = _CITY_RENTS[city_key].get(2, _CITY_RENTS[city_key].get(1))
+    else:
+        per_unit = None
+
+    # Fallback: use price-to-rent / 12 / assumed units
+    if not per_unit and list_price:
+        ptr = _PTR_RATIOS.get(city_key, _DEFAULT_PTR)
+        # Assume average 3 units per building for PTR calculation
+        n = units or 3
+        per_unit = (list_price / ptr / 12) / n
+
+    if not per_unit:
+        return None
+
+    n = units or 3  # default: assume 3 units
+    return round(per_unit * n, 0)
 
 
 def ptr_ratio_for_city(city: Optional[str]) -> float:
