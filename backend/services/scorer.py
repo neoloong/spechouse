@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 # RentCast API key — set in backend/.env (free tier: 500 calls/month)
 _rentcast_key: Optional[str] = None
 
+
 def _get_rentcast_key() -> Optional[str]:
     global _rentcast_key
     if _rentcast_key is None:
@@ -131,29 +132,43 @@ async def enrich_agg_data(
 ) -> dict:
     agg = dict(current_agg)
 
-    # Rental estimate: RentCast (property-level) if API key set, else HUD FMR (coarse metro-level)
+    # ── Rental estimate (3-tier priority) ───────────────────────────────────
+    # 1. RentCast API (property-level, accurate) — if key configured
+    # 2. Self-built price-to-rent model (Redfin-derived, no API needed)
+    # 3. HUD FMR (coarse metro-level, always free)
+    rental_estimate: Optional[float] = None
+    source = "—"
+
     key = _get_rentcast_key()
-    source = "RentCast" if key else "HUD FY2024 FMR"
     if key:
         try:
             from backend.services import rentcast
             result = await rentcast.get_rental_estimate(
-                address=None,
-                zip_code=None,
-                beds=beds,
-                baths=None,
-                sqft=sqft,
-                property_type=None,
+                address=None, zip_code=None, beds=beds,
+                baths=None, sqft=sqft, property_type=None,
             )
             rental_estimate = float(result["rent"]) if result and "rent" in result else None
         except Exception as e:
             logger.warning(f"RentCast error: {e}")
-            rental_estimate = None
-        if not rental_estimate:
-            rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
-            source = "HUD FY2024 FMR (fallback)"
-    else:
+
+    if not rental_estimate:
+        try:
+            from backend.services.rental_model import estimate_rent
+            rental_estimate = estimate_rent(
+                list_price=list_price,
+                sqft=sqft,
+                beds=beds,
+                city=city,
+                state=state,
+            )
+            if rental_estimate:
+                source = "Price-to-Rent Model"
+        except Exception as e:
+            logger.debug(f"Rental model error: {e}")
+
+    if not rental_estimate:
         rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
+        source = "HUD FY2024 FMR"
 
     rental_yield = None
     cap_rate = None
