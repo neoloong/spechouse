@@ -183,7 +183,7 @@ export async function parseSearch(q: string): Promise<ParsedSearch> {
 }
 
 export function fmt(n: number | undefined | null, style: "currency" | "decimal" | "percent" = "decimal", decimals = 0): string {
-  if (n == null) return "—";
+  if (n == null || n === 0) return "—";
   return new Intl.NumberFormat("en-US", {
     style,
     currency: "USD",

@@ -24,3 +24,4 @@ frontend/out/
 # Misc
 *.log
 .api_quota.json
+.vercel

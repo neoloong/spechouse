@@ -81,11 +81,16 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
         {/* Freshness */}
         {p.last_enriched && (() => {
           const days = Math.floor((Date.now() - new Date(p.last_enriched).getTime()) / (1000 * 60 * 60 * 24));
-          if (days > 7) {
-            return <p className="text-xs text-orange-500 mt-1">⚠️ Data may be outdated ({days}d old)</p>;
+          if (days > 1) {
+            return <p className="text-xs text-muted-foreground mt-1">♻️ Refreshed {days}d ago</p>;
           }
           return null;
         })()}
+
+        {/* Anomaly guard: flag unrealistic yields or prices */}
+        {(rental?.yield_pct && rental.yield_pct > 20) && (
+          <p className="text-xs text-orange-500 mt-1">⚠️ Unusual yield — verify independently</p>
+        )}
 
         {/* Enrichment signals */}
         {(rental?.estimate || env?.noise_label) && (
