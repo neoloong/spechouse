@@ -128,7 +128,7 @@ async def _enrich_property(prop_id: int) -> None:
                 )
                 lifestyle_data = {}
 
-        new_agg = scorer.enrich_agg_data(
+        new_agg = await scorer.enrich_agg_data(
             current_agg=prop.agg_data or {},
             list_price=float(prop.list_price) if prop.list_price else None,
             sqft=prop.sqft,

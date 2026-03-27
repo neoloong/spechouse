@@ -1,6 +1,22 @@
 """Property score algorithm (0–100 composite)."""
+import logging
 from typing import Optional, Dict
 from backend.services.hud_fmr import get_rent_estimate
+
+logger = logging.getLogger(__name__)
+
+# RentCast API key — set in backend/.env (free tier: 500 calls/month)
+_rentcast_key: Optional[str] = None
+
+def _get_rentcast_key() -> Optional[str]:
+    global _rentcast_key
+    if _rentcast_key is None:
+        try:
+            from backend.config import settings
+            _rentcast_key = getattr(settings, "RENTCAST_API_KEY", "") or None
+        except Exception:
+            _rentcast_key = None
+    return _rentcast_key
 
 
 def _clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
@@ -70,7 +86,41 @@ def compute_scores(
     return {"overall": overall, "value": value_score, "investment": investment_score}
 
 
-def enrich_agg_data(
+async def _get_rental_estimate(
+    address: Optional[str],
+    zip_code: Optional[str],
+    city: Optional[str],
+    state: Optional[str],
+    beds: Optional[int],
+    baths: Optional[float],
+    sqft: Optional[int],
+    property_type: Optional[str],
+) -> Optional[float]:
+    """Try RentCast (property-level) first, fall back to HUD FMR (free, coarse)."""
+    import asyncio
+    from backend.services import rentcast
+
+    key = _get_rentcast_key()
+    if key:
+        try:
+            result = await rentcast.get_rental_estimate(
+                address=address,
+                zip_code=zip_code,
+                beds=beds,
+                baths=baths,
+                sqft=sqft,
+                property_type=property_type,
+            )
+            if result and "rent" in result:
+                return float(result["rent"])
+        except Exception as e:
+            logger.warning(f"RentCast failed ({e}), falling back to HUD FMR")
+
+    # Free fallback: HUD FMR coarse city-level estimate
+    return get_rent_estimate(city=city, state=state, beds=beds)
+
+
+async def enrich_agg_data(
     current_agg: dict,
     list_price: Optional[float],
     sqft: Optional[int],
@@ -81,8 +131,29 @@ def enrich_agg_data(
 ) -> dict:
     agg = dict(current_agg)
 
-    # Free rental estimate — HUD FMR, zero API calls
-    rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
+    # Rental estimate: RentCast (property-level) if API key set, else HUD FMR (coarse metro-level)
+    key = _get_rentcast_key()
+    source = "RentCast" if key else "HUD FY2024 FMR"
+    if key:
+        try:
+            from backend.services import rentcast
+            result = await rentcast.get_rental_estimate(
+                address=None,
+                zip_code=None,
+                beds=beds,
+                baths=None,
+                sqft=sqft,
+                property_type=None,
+            )
+            rental_estimate = float(result["rent"]) if result and "rent" in result else None
+        except Exception as e:
+            logger.warning(f"RentCast error: {e}")
+            rental_estimate = None
+        if not rental_estimate:
+            rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
+            source = "HUD FY2024 FMR (fallback)"
+    else:
+        rental_estimate = get_rent_estimate(city=city, state=state, beds=beds)
 
     rental_yield = None
     cap_rate = None
@@ -95,7 +166,7 @@ def enrich_agg_data(
         "estimate": rental_estimate,
         "yield_pct": rental_yield,
         "cap_rate": cap_rate,
-        "source": "HUD FY2024 FMR",
+        "source": source,
     }
 
     agg["environment"] = {
