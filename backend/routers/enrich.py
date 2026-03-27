@@ -24,5 +24,5 @@ async def trigger_enrichment(
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    background_tasks.add_task(_enrich_property, property_id, db)
+    background_tasks.add_task(_enrich_property, property_id)
     return {"status": "enrichment queued", "property_id": property_id}
