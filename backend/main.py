@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers import interval
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -58,21 +58,23 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Run initial enrichment for stale properties on startup
-    count = await _enrich_stale_properties(stale_hours=6)
-    if count > 0:
-        print(f"[scheduler] Initial enrichment: queued {count} stale properties")
-
     # Schedule periodic re-enrichment every 6 hours
     scheduler.add_job(
         _enrich_stale_properties,
-        trigger=interval(hours=6),
+        trigger=IntervalTrigger(hours=6),
         args=[6],
         id="re_enrich_stale",
         replace_existing=True,
     )
     scheduler.start()
     print("[scheduler] Started — re-enrichment every 6h")
+
+    # Kick off initial stale-enrichment in the background (don't block startup)
+    async def initial_enrich():
+        count = await _enrich_stale_properties(stale_hours=6)
+        print(f"[scheduler] Initial enrichment done: {count} properties refreshed")
+
+    asyncio.create_task(initial_enrich())
 
     yield
     scheduler.shutdown()

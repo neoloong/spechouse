@@ -83,6 +83,11 @@ async def _upsert_property(db: AsyncSession, data: dict) -> PropertyORM:
     return prop
 
 
+# Price floor: skip enrichment for listings that are almost certainly bad data.
+# E.g. SF condos listed at $146k are Redfin scraping errors, not real deals.
+_MIN_PRICE = 50_000
+
+
 async def _enrich_property(prop_id: int) -> None:
     """Fetch noise data, compute scores, and scrape photo. Runs once per property.
     Creates its own DB session — background tasks cannot reuse the request session."""
@@ -91,6 +96,16 @@ async def _enrich_property(prop_id: int) -> None:
         result = await db.execute(stmt)
         prop = result.scalar_one_or_none()
         if prop is None:
+            return
+
+        # Guard: skip listings with obviously bad price data
+        if prop.list_price is not None and prop.list_price < _MIN_PRICE:
+            await db.execute(
+                update(PropertyORM)
+                .where(PropertyORM.id == prop_id)
+                .values(last_enriched=datetime.utcnow())
+            )
+            await db.commit()
             return
 
         noise_data: dict = {}
