@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCompare } from "@/hooks/useCompare";
 import { Button } from "@/components/ui/button";
 import { GitCompareArrows, X, LayoutList } from "lucide-react";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics";
 
 export default function CompareTray() {
   const { ids, clear } = useCompare();
@@ -22,7 +23,10 @@ export default function CompareTray() {
       </span>
 
       {ready ? (
-        <Button size="sm" onClick={() => router.push(`/compare?ids=${ids.join(",")}&from=${fromUrl}`)}>
+        <Button size="sm" onClick={() => {
+          trackEvent(AnalyticsEvents.COMPARE_OPEN, { property_ids: ids.join(",") });
+          router.push(`/compare?ids=${ids.join(",")}&from=${fromUrl}`);
+        }}>
           <GitCompareArrows className="w-4 h-4 mr-1.5" />
           Compare now
         </Button>

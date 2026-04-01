@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2, Sparkles } from "lucide-react";
 import { parseSearch } from "@/lib/api";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics";
 
 interface Props {
   defaultCity?: string;
@@ -100,6 +101,14 @@ export default function SearchBar({ defaultCity = "", defaultBeds = "", defaultM
       if (maxPrice) params.set("max_price", maxPrice);
     }
 
+    trackEvent(AnalyticsEvents.SEARCH, {
+      query: q,
+      city: params.get("city") ?? '',
+      zip_code: params.get("zip_code") ?? '',
+      beds: params.get("beds") ?? '',
+      max_price: params.get("max_price") ?? '',
+      is_nl_query: isNLQuery(q),
+    });
     router.push(`/listings?${params.toString()}`);
   };
 

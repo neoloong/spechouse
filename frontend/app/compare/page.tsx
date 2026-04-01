@@ -8,6 +8,7 @@ import CompareTable from "@/components/CompareTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Share2, Check } from "lucide-react";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics";
 
 function CompareContent() {
   const searchParams = useSearchParams();
@@ -27,6 +28,10 @@ function CompareContent() {
       ? `${window.location.origin}/compare?eids=${encodeURIComponent(eids)}`
       : window.location.href;
     navigator.clipboard.writeText(shareUrl).then(() => {
+      trackEvent(AnalyticsEvents.COMPARE_SHARE, {
+        property_ids: eids,
+        property_count: specs.length,
+      });
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -75,7 +80,10 @@ function CompareContent() {
           <h1 className="text-base font-semibold ml-2">Compare</h1>
           {specs.length >= 2 && (
             <>
-              <Button size="sm" variant="outline" onClick={() => window.print()} className="ml-auto">
+              <Button size="sm" variant="outline" onClick={() => {
+                trackEvent(AnalyticsEvents.PDF_EXPORT, { property_ids: specs.map(s => s.id).join(",") });
+                window.print();
+              }} className="ml-auto">
                 Export PDF
               </Button>
               <Button size="sm" variant="outline" onClick={handleShare} className="ml-2">

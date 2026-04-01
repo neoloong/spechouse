@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SPOTCRIME_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     NEXT_PUBLIC_API_URL: str = "http://localhost:8000"
+    INTERNAL_API_KEY: str = ""
 
     model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
 

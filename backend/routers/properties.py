@@ -13,6 +13,7 @@ from backend.models.property import PropertyORM, PropertyListItem, PropertyOut
 from backend.services import howloud, scorer, redfin, schools as schools_svc, crime as crime_svc
 from backend.services.mock_data import MOCK_PROPERTIES, MOCK_AGG
 from backend.config import settings
+from backend.routers.deps import require_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -230,7 +231,7 @@ async def _cached_city_results(
     if max_sqft:
         stmt = stmt.where(PropertyORM.sqft <= max_sqft)
 
-    stmt = stmt.limit(limit).order_by(desc(PropertyORM.score))
+    stmt = stmt.limit(limit).order_by(desc(PropertyORM.id))
     result = await db.execute(stmt)
     rows = result.scalars().all()
     return list(rows) if rows else None
@@ -342,7 +343,7 @@ async def get_property(
     return prop
 
 
-@router.post("/admin/re-enrich-schools")
+@router.post("/admin/re-enrich-schools", dependencies=[Depends(require_api_key)])
 async def re_enrich_schools(db: AsyncSession = Depends(get_db), background_tasks: BackgroundTasks = None):
     """Re-enrich schools data for all properties."""
     stmt = select(PropertyORM)
@@ -356,7 +357,7 @@ async def re_enrich_schools(db: AsyncSession = Depends(get_db), background_tasks
     return {"queued": count}
 
 
-@router.post("/admin/preload-cities")
+@router.post("/admin/preload-cities", dependencies=[Depends(require_api_key)])
 async def preload_cities(background_tasks: BackgroundTasks):
     """Pre-load listings for popular cities in background."""
     popular_cities = [

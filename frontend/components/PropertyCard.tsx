@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import ScoreBadge from "@/components/ScoreBadge";
 import { fmt, type PropertyListItem } from "@/lib/api";
+import { trackEvent, AnalyticsEvents } from "@/lib/analytics";
 import { Plus, Check } from "lucide-react";
 
 interface Props {
@@ -115,7 +116,7 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
 
         {/* Actions */}
         <div className="flex gap-2 mt-3">
-          <Link href={`/property/${p.id}`} className="flex-1">
+          <Link href={`/property/${p.id}`} className="flex-1" onClick={() => trackEvent(AnalyticsEvents.PROPERTY_CLICK, { property_id: p.id, address: p.address_display, city: p.city ?? '', price: p.list_price ?? 0 })}>
             <Button variant="outline" size="sm" className="w-full">
               View details
             </Button>
@@ -123,7 +124,15 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
           <Button
             size="sm"
             variant={isInCompare ? "default" : "outline"}
-            onClick={() => onToggleCompare(p.id)}
+            onClick={() => {
+              trackEvent(isInCompare ? AnalyticsEvents.COMPARE_REMOVE : AnalyticsEvents.COMPARE_ADD, {
+                property_id: p.id,
+                address: p.address_display,
+                city: p.city ?? '',
+                price: p.list_price ?? 0,
+              });
+              onToggleCompare(p.id);
+            }}
             disabled={!isInCompare && compareIds.length >= 4}
             className="shrink-0"
           >

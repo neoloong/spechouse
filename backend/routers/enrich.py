@@ -7,11 +7,12 @@ from sqlalchemy import select
 from backend.db import get_db
 from backend.models.property import PropertyORM
 from backend.routers.properties import _enrich_property
+from backend.routers.deps import require_api_key
 
 router = APIRouter(prefix="/enrich", tags=["enrich"])
 
 
-@router.post("/{property_id}")
+@router.post("/{property_id}", dependencies=[Depends(require_api_key)])
 async def trigger_enrichment(
     property_id: int,
     background_tasks: BackgroundTasks,
