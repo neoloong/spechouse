@@ -24,6 +24,41 @@ def _clamp(v: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, v))
 
 
+def _noise_score(noise_db: Optional[float]) -> Optional[float]:
+    """Convert dB reading to 0-100 quietness score.
+    Lower dB = quieter = higher score."""
+    if noise_db is None:
+        return None
+    # Piecewise linear: 40dB=100, 55dB=80, 65dB=60, 75dB=30, 85dB=10
+    if noise_db <= 40:
+        return 100.0
+    elif noise_db <= 55:
+        return _clamp(100 + (40 - noise_db) * 1.33)
+    elif noise_db <= 65:
+        return _clamp(80 - (noise_db - 55) * 2.0)
+    elif noise_db <= 75:
+        return _clamp(60 - (noise_db - 65) * 3.0)
+    else:
+        return _clamp(30 - (noise_db - 75) * 2.0)
+
+
+def _school_rating_score(schools: list) -> Optional[float]:
+    """Convert GreatSchools ratings (1-10) to 0-100 score.
+    Uses the closest elementary school rating if available,
+    otherwise the best available school rating."""
+    if not schools:
+        return None
+    # Priority: elementary > middle > high
+    level_order = ["elementary", "middle", "high"]
+    for level in level_order:
+        for s in schools:
+            if s.get("type") == level and s.get("rating") is not None:
+                return float(s["rating"]) * 10  # 1-10 → 0-100
+    # Fallback: best available rating
+    ratings = [s["rating"] * 10 for s in schools if s.get("rating") is not None]
+    return max(ratings) if ratings else None
+
+
 def compute_scores(
     list_price: Optional[float],
     sqft: Optional[int],
@@ -32,22 +67,39 @@ def compute_scores(
     crime_score: Optional[float],
     rentcast_avm: Optional[float],
     price_trend_pct: Optional[float] = None,
+    schools: Optional[list] = None,
 ) -> Dict[str, float]:
     components: Dict[str, Optional[float]] = {}
 
-    # 1. Rental yield (25%)
+    # 1. Rental yield (20%) — annual rent / list price as a percentage, 0-100
     if list_price and rental_estimate and list_price > 0:
         annual_rent = rental_estimate * 12
-        gross_yield = (annual_rent / list_price) * 100
-        components["rental_yield"] = _clamp(gross_yield / 12 * 100)
+        gross_yield_pct = (annual_rent / list_price) * 100
+        # 5% yield → 50 (middle), 3% → 25, 8% → 65, 12% → 100
+        components["rental_yield"] = _clamp(gross_yield_pct * 8.33)
     else:
         components["rental_yield"] = None
 
-    # 2. Noise inverted (20%)
-    components["noise"] = _clamp(100 - noise_db) if noise_db is not None else None
+    # 2. Noise (20%) — normalized so typical suburban ~65dB = ~60, quiet ~50dB = ~80
+    # Piecewise: <40dB=100, 40-55=80-100, 55-65=60-80, 65-75=30-60, 75+=10-30
+    if noise_db is not None:
+        if noise_db <= 40:
+            noise_score = 100.0
+        elif noise_db <= 55:
+            noise_score = _clamp(100 + (40 - noise_db) * 1.33)
+        elif noise_db <= 65:
+            noise_score = _clamp(80 - (noise_db - 55) * 2.0)
+        elif noise_db <= 75:
+            noise_score = _clamp(60 - (noise_db - 65) * 3.0)
+        else:
+            noise_score = _clamp(30 - (noise_db - 75) * 2.0)
+        components["noise"] = noise_score
+    else:
+        components["noise"] = None
 
-    # 3. Crime inverted (20%)
-    components["crime"] = _clamp(100 - crime_score) if crime_score is not None else None
+    # 3. Crime / safety (20%) — crime_score is already safety_score (high = safe)
+    # No inversion needed: directly map 0-100 → 0-100
+    components["crime"] = _clamp(crime_score) if crime_score is not None else None
 
     # 4. Price vs AVM (20%)
     if list_price and rentcast_avm and rentcast_avm > 0:
@@ -62,12 +114,16 @@ def compute_scores(
     else:
         components["price_trend"] = None
 
+    # 6. Schools (15%) — closest elementary school GreatSchools rating × 10 (0-100 scale)
+    components["schools"] = _school_rating_score(schools) if schools else None
+
     weights = {
-        "rental_yield": 0.25,
-        "noise": 0.20,
-        "crime": 0.20,
-        "price_vs_avm": 0.20,
-        "price_trend": 0.15,
+        "rental_yield": 0.20,
+        "noise": 0.15,
+        "crime": 0.15,
+        "price_vs_avm": 0.15,
+        "price_trend": 0.10,
+        "schools": 0.15,
     }
 
     # Missing components use 50 (neutral) so one bad signal doesn't
@@ -126,6 +182,8 @@ async def enrich_agg_data(
     list_price: Optional[float],
     sqft: Optional[int],
     noise_data: dict,
+    crime_data: Optional[dict] = None,
+    schools: Optional[list] = None,
     city: Optional[str] = None,
     state: Optional[str] = None,
     beds: Optional[int] = None,
@@ -220,10 +278,16 @@ async def enrich_agg_data(
         "zillow_city_median": zillow_city_median,
     }
 
+    # Extract crime safety score (high = safe, from city/FBI data)
+    crime_safety_score: Optional[float] = None
+    if crime_data:
+        crime_safety_score = crime_data.get("safety_score")
+
     agg["environment"] = {
         "noise_db": noise_data.get("noise_db"),
         "noise_label": noise_data.get("noise_label"),
-        "crime_score": None,
+        "crime_score": crime_safety_score,
+        **({"crime_label": crime_data.get("label")} if crime_data.get("label") else {}),
     }
 
     agg["scores"] = compute_scores(
@@ -231,8 +295,9 @@ async def enrich_agg_data(
         sqft=sqft,
         rental_estimate=rental_estimate,
         noise_db=noise_data.get("noise_db"),
-        crime_score=None,
+        crime_score=crime_safety_score,
         rentcast_avm=None,
+        schools=schools,
     )
 
     return agg

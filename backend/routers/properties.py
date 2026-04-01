@@ -134,13 +134,13 @@ async def _enrich_property(prop_id: int) -> None:
             list_price=float(prop.list_price) if prop.list_price else None,
             sqft=prop.sqft,
             noise_data=noise_data,
+            crime_data=crime_data,
+            schools=schools_data,
             city=prop.city,
             state=prop.state,
             beds=prop.beds,
             property_type=prop.property_type,
         )
-        if schools_data:
-            new_agg["schools"] = schools_data
         if crime_data:
             new_agg["crime"] = crime_data
         if lifestyle_data:
