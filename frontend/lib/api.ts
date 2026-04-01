@@ -158,7 +158,7 @@ async function fetchJson<T>(path: string, params?: Record<string, string | numbe
       }
     }
   }
-  const res = await fetch(url.toString(), { next: { revalidate: 60 }, headers: { "ngrok-skip-browser-warning": "true" } });
+  const res = await fetch(url.toString(), { cache: "no-store", headers: { "ngrok-skip-browser-warning": "true" } });
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${await res.text()}`);
   }
