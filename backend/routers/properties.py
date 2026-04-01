@@ -31,6 +31,25 @@ async def _upsert_property(db: AsyncSession, data: dict) -> PropertyORM:
     # Pull out non-ORM fields before processing
     redfin_url = data.pop("_redfin_url", None)
 
+    list_price = data.get("list_price")
+    sqft = data.get("sqft")
+    beds = data.get("beds")
+
+    # Guard: skip listings with obviously bad price data
+    if list_price is not None and list_price < _MIN_PRICE:
+        logger.warning(f"Skipping low-price scrape error: {data.get('external_id')} ${list_price}")
+        return None
+
+    # Guard: skip listings with beds=0 AND suspiciously large sqft (scrape error)
+    if beds == 0 and sqft and sqft > 5000:
+        logger.warning(f"Skipping beds=0/sqft scrape error: {data.get('external_id')} sqft={sqft}")
+        return None
+
+    # Guard: skip listings with unrealistically low $/sqft
+    if list_price and sqft and (list_price / sqft) < _MIN_PRICE_PER_SQFT:
+        logger.warning(f"Skipping low $/sqft error: {data.get('external_id')} ${list_price}/{sqft}sqft")
+        return None
+
     stmt = select(PropertyORM).where(PropertyORM.external_id == data["external_id"])
     result = await db.execute(stmt)
     prop = result.scalar_one_or_none()
@@ -88,6 +107,10 @@ async def _upsert_property(db: AsyncSession, data: dict) -> PropertyORM:
 # E.g. SF condos listed at $146k are Redfin scraping errors, not real deals.
 _MIN_PRICE = 50_000
 
+# Min price-per-sqft: skip listings where $/sqft is unrealistically low.
+# Catches Redfin scrape errors where building sqft gets assigned to a unit.
+_MIN_PRICE_PER_SQFT = 50
+
 
 async def _enrich_property(prop_id: int) -> None:
     """Fetch noise data, compute scores, and scrape photo. Runs once per property.
@@ -101,6 +124,28 @@ async def _enrich_property(prop_id: int) -> None:
 
         # Guard: skip listings with obviously bad price data
         if prop.list_price is not None and prop.list_price < _MIN_PRICE:
+            await db.execute(
+                update(PropertyORM)
+                .where(PropertyORM.id == prop_id)
+                .values(last_enriched=datetime.utcnow())
+            )
+            await db.commit()
+            return
+
+        # Skip listings with beds=0 AND suspiciously large sqft (scrape error)
+        if prop.beds == 0 and prop.sqft and prop.sqft > 5000:
+            logger.warning(f"Skipping likely scrape error: id={prop_id} beds=0 sqft={prop.sqft}")
+            await db.execute(
+                update(PropertyORM)
+                .where(PropertyORM.id == prop_id)
+                .values(last_enriched=datetime.utcnow())
+            )
+            await db.commit()
+            return
+
+        # Skip listings with unrealistically low price-per-sqft (scrape error)
+        if prop.list_price and prop.sqft and (prop.list_price / prop.sqft) < _MIN_PRICE_PER_SQFT:
+            logger.warning(f"Skipping low $/sqft scrape error: id={prop_id} ${prop.list_price}/{prop.sqft}sqft")
             await db.execute(
                 update(PropertyORM)
                 .where(PropertyORM.id == prop_id)
@@ -264,6 +309,8 @@ async def search_properties(
             if max_price and (data.get("list_price") or 0) > max_price:
                 continue
             prop = await _upsert_property(db, dict(data))
+            if prop is None:
+                continue
             agg = MOCK_AGG.get(data["external_id"], {})
             if agg and not prop.agg_data:
                 await db.execute(
@@ -317,6 +364,8 @@ async def search_properties(
         if not parsed.get("external_id"):
             continue
         prop = await _upsert_property(db, parsed)
+        if prop is None:
+            continue  # filtered out by guard in _upsert_property
         # Re-enrich if never enriched, or if schools data is missing (added later)
         needs_enrich = (
             prop.last_enriched is None

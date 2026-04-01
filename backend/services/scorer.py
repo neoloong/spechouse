@@ -69,78 +69,85 @@ def compute_scores(
     price_trend_pct: Optional[float] = None,
     schools: Optional[list] = None,
 ) -> Dict[str, float]:
+    """
+    Score algorithm — only scores dimensions with real data.
+    Missing signals are excluded (not penalised with neutral 50).
+    Returns 0-100 scale per dimension and composite.
+    """
     components: Dict[str, Optional[float]] = {}
 
-    # 1. Rental yield (20%) — annual rent / list price as a percentage, 0-100
+    # 1. Rental yield — annual rent / list price as a percentage → 0-100
+    # Scale: 3% yield=25, 5%=42, 7%=58, 10%=83, 12%+=100
     if list_price and rental_estimate and list_price > 0:
         annual_rent = rental_estimate * 12
         gross_yield_pct = (annual_rent / list_price) * 100
-        # 5% yield → 50 (middle), 3% → 25, 8% → 65, 12% → 100
-        components["rental_yield"] = _clamp(gross_yield_pct * 8.33)
-    else:
-        components["rental_yield"] = None
+        components["rental_yield"] = _clamp(gross_yield_pct * 9.1 - 2.7)
 
-    # 2. Noise (20%) — normalized so typical suburban ~65dB = ~60, quiet ~50dB = ~80
-    # Piecewise: <40dB=100, 40-55=80-100, 55-65=60-80, 65-75=30-60, 75+=10-30
+    # 2. Noise — lower dB = higher score (quieter)
+    # <40dB=100, 40-55=80-100, 55-65=60-80, 65-75=30-60, 75+=10-30
     if noise_db is not None:
         if noise_db <= 40:
-            noise_score = 100.0
+            components["noise"] = 100.0
         elif noise_db <= 55:
-            noise_score = _clamp(100 + (40 - noise_db) * 1.33)
+            components["noise"] = _clamp(100 + (40 - noise_db) * 1.33)
         elif noise_db <= 65:
-            noise_score = _clamp(80 - (noise_db - 55) * 2.0)
+            components["noise"] = _clamp(80 - (noise_db - 55) * 2.0)
         elif noise_db <= 75:
-            noise_score = _clamp(60 - (noise_db - 65) * 3.0)
+            components["noise"] = _clamp(60 - (noise_db - 65) * 3.0)
         else:
-            noise_score = _clamp(30 - (noise_db - 75) * 2.0)
-        components["noise"] = noise_score
-    else:
-        components["noise"] = None
+            components["noise"] = _clamp(30 - (noise_db - 75) * 2.0)
 
-    # 3. Crime / safety (20%) — crime_score is already safety_score (high = safe)
-    # No inversion needed: directly map 0-100 → 0-100
-    components["crime"] = _clamp(crime_score) if crime_score is not None else None
+    # 3. Crime safety — crime_score is already 0-100 (high = safe)
+    if crime_score is not None:
+        components["crime"] = _clamp(crime_score)
 
-    # 4. Price vs AVM (20%)
+    # 4. Price vs AVM — how much below market value
     if list_price and rentcast_avm and rentcast_avm > 0:
         discount_pct = ((rentcast_avm - list_price) / rentcast_avm) * 100
+        # -10% below market = 75, at market = 50, 10% above = 25
         components["price_vs_avm"] = _clamp(50 + discount_pct * 2.5)
-    else:
-        components["price_vs_avm"] = None
 
-    # 5. Price trend (15%)
+    # 5. Price trend — positive trend = lower score (overpriced)
     if price_trend_pct is not None:
         components["price_trend"] = _clamp(50 - price_trend_pct * 5)
-    else:
-        components["price_trend"] = None
 
-    # 6. Schools (15%) — closest elementary school GreatSchools rating × 10 (0-100 scale)
-    components["schools"] = _school_rating_score(schools) if schools else None
+    # 6. Schools — elementary GreatSchools rating × 10
+    school_score = _school_rating_score(schools)
+    if school_score is not None:
+        components["schools"] = school_score
 
+    # ── Composite: weighted average of available signals only ─────────────────
     weights = {
-        "rental_yield": 0.20,
+        "rental_yield": 0.25,
         "noise": 0.15,
-        "crime": 0.15,
+        "crime": 0.20,
         "price_vs_avm": 0.15,
         "price_trend": 0.10,
         "schools": 0.15,
     }
 
-    # Missing components use 50 (neutral) so one bad signal doesn't
-    # dominate the score when noise/crime data isn't available yet.
-    weighted_sum = sum(
-        (v if v is not None else 50.0) * w
-        for v, w in [(components[k], weights[k]) for k in weights]
-    )
-    overall = round(weighted_sum, 1)
+    available = {k: components[k] for k in components if components[k] is not None}
+    if available:
+        total_weight = sum(weights[k] for k in available)
+        # Normalise weights to sum to 1.0
+        overall = sum(v * (weights[k] / total_weight) for k, v in available.items())
+        overall = round(_clamp(overall), 1)
+    else:
+        overall = None
 
-    value_vals = [v for v in [components["price_vs_avm"], components["rental_yield"]] if v is not None]
-    value_score = round(sum(value_vals) / len(value_vals), 1) if value_vals else 50.0
+    # Value score: rental yield + price vs AVM
+    value_vals = [components[k] for k in ["price_vs_avm", "rental_yield"] if components.get(k) is not None]
+    value_score = round(sum(value_vals) / len(value_vals), 1) if value_vals else None
 
-    inv_vals = [v for v in [components["rental_yield"], components["price_trend"]] if v is not None]
-    investment_score = round(sum(inv_vals) / len(inv_vals), 1) if inv_vals else 50.0
+    # Investment score: rental yield + price trend
+    inv_vals = [components[k] for k in ["rental_yield", "price_trend"] if components.get(k) is not None]
+    investment_score = round(sum(inv_vals) / len(inv_vals), 1) if inv_vals else None
 
-    return {"overall": overall, "value": value_score, "investment": investment_score}
+    return {
+        "overall": overall if overall is not None else 50.0,
+        "value": value_score if value_score is not None else 50.0,
+        "investment": investment_score if investment_score is not None else 50.0,
+    }
 
 
 async def _get_rental_estimate(
