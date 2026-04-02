@@ -1,7 +1,9 @@
 """Property search and detail endpoints."""
 from typing import Optional, List
 import asyncio
+import hashlib
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func, desc
@@ -20,9 +22,56 @@ router = APIRouter(prefix="/properties", tags=["properties"])
 
 
 def _use_mock() -> bool:
-    # Only use mock data if explicitly opted in via env var USE_MOCK_DATA=true
-    # Redfin scraping is free and requires no API key — use it by default
     return str(getattr(settings, "USE_MOCK_DATA", "")).lower() == "true"
+
+
+# ── Short-TTL in-memory cache: avoids hammering Redfin/Nominatim ──────────────
+# 5-minute TTL — stale enough to reduce API calls, fresh enough to show new listings
+_SEARCH_CACHE_TTL_SECS = 300
+
+_search_cache: dict[str, tuple[float, List[dict]]] = {}
+
+
+def _search_cache_key(
+    city: Optional[str],
+    state: Optional[str],
+    zip_code: Optional[str],
+    beds: Optional[int],
+    min_baths: Optional[float],
+    max_price: Optional[float],
+    min_price: Optional[float],
+    property_type: Optional[str],
+    min_sqft: Optional[int],
+    max_sqft: Optional[int],
+    limit: int,
+) -> str:
+    """Deterministic cache key for a search request."""
+    parts = [
+        city or "", state or "", zip_code or "",
+        str(beds or ""), str(min_baths or ""), str(max_price or ""),
+        str(min_price or ""), property_type or "", str(min_sqft or ""),
+        str(max_sqft or ""), str(limit),
+    ]
+    return hashlib.md5("|".join(parts).encode()).hexdigest()
+
+
+def _get_cached(city: str, **kwargs) -> Optional[List[dict]]:
+    """Return cached Redfin results if still fresh (< 5 min old)."""
+    key = _search_cache_key(city=city, **kwargs)
+    if key in _search_cache:
+        ts, data = _search_cache[key]
+        if time.time() - ts < _SEARCH_CACHE_TTL_SECS:
+            logger.info(f"Search cache hit for city={city} (age={time.time()-ts:.0f}s)")
+            return data
+        else:
+            del _search_cache[key]
+    return None
+
+
+def _set_cached(city: str, data: List[dict], **kwargs) -> None:
+    key = _search_cache_key(city=city, **kwargs)
+    _search_cache[key] = (time.time(), data)
+    logger.info(f"Search cache set for city={city}, {len(data)} listings, TTL={_SEARCH_CACHE_TTL_SECS}s")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -226,61 +275,6 @@ _PTYPE_SQL_PATTERNS = {
 }
 
 
-async def _cached_city_results(
-    db: AsyncSession,
-    city: Optional[str],
-    zip_code: Optional[str],
-    beds: Optional[int],
-    min_baths: Optional[float],
-    max_price: Optional[float],
-    min_price: Optional[float],
-    property_type: Optional[str],
-    min_sqft: Optional[int],
-    max_sqft: Optional[int],
-    limit: int,
-) -> Optional[List[PropertyORM]]:
-    """Return DB-cached results if we already have data for this city/zip."""
-    stmt = select(PropertyORM)
-    if city:
-        # Parse "City, STATE" or "City STATE" → extract city words
-        raw_city = city.split(",")[0].strip()  # "San Francisco CA" or "San Francisco"
-        city_words = raw_city.split()
-        # Require ALL words to match (prevents "San" from matching "San Jose")
-        # Also exclude known state-code words
-        state_words = {"ca", "tx", "ny", "wa", "or", "co", "az", "nv", "fl", "il", "ma", "pa", "va", "md", "ga", "nc", "sc", "oh", "mi", "nj", "ct", "hi", "hi"}
-        city_words = [w for w in city_words if w.lower() not in state_words and len(w) > 2]
-        if len(city_words) >= 2:
-            # Multi-word city: "San Francisco" — all words must appear
-            for w in city_words:
-                stmt = stmt.where(PropertyORM.city.ilike(f"%{w}%"))
-        elif len(city_words) == 1:
-            # Single word: "Oakland" or "Austin" — prefix match
-            stmt = stmt.where(PropertyORM.city.ilike(f"{city_words[0]}%"))
-    elif zip_code:
-        stmt = stmt.where(PropertyORM.zip_code == zip_code)
-    else:
-        return None
-
-    if beds:
-        stmt = stmt.where(PropertyORM.beds >= beds)
-    if min_baths:
-        stmt = stmt.where(PropertyORM.baths >= min_baths)
-    if max_price:
-        stmt = stmt.where(PropertyORM.list_price <= max_price)
-    if min_price:
-        stmt = stmt.where(PropertyORM.list_price >= min_price)
-    if property_type and property_type in _PTYPE_SQL_PATTERNS:
-        stmt = stmt.where(PropertyORM.property_type.ilike(_PTYPE_SQL_PATTERNS[property_type]))
-    if min_sqft:
-        stmt = stmt.where(PropertyORM.sqft >= min_sqft)
-    if max_sqft:
-        stmt = stmt.where(PropertyORM.sqft <= max_sqft)
-
-    stmt = stmt.limit(limit).order_by(desc(PropertyORM.id))
-    result = await db.execute(stmt)
-    rows = result.scalars().all()
-    return list(rows) if rows else None
-
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -323,42 +317,44 @@ async def search_properties(
             props.append(prop)
         return props[:limit]
 
-    # ── Cache-first: return DB results if available ───────────────────────────
-    cached = await _cached_city_results(
-        db, city, zip_code, beds, min_baths, max_price, min_price,
-        property_type, min_sqft, max_sqft, limit,
+    # ── Always fetch fresh from Redfin (cached 5 min to avoid hammering API) ─────
+    cache_kwargs = dict(
+        city=city or "", state=state, zip_code=zip_code,
+        beds=beds, min_baths=min_baths, max_price=max_price,
+        min_price=min_price, property_type=property_type,
+        min_sqft=min_sqft, max_sqft=max_sqft, limit=limit,
     )
-    if cached:
-        logger.info(f"Cache hit for city={city} — skipping Redfin call")
-        # Still enrich any cached properties that are missing schools data
-        for prop in cached:
-            if "schools" not in (prop.agg_data or {}):
-                background_tasks.add_task(_enrich_property, prop.id)
-        return cached
 
-    # ── Redfin (free, no API key needed) ─────────────────────────────────────
-    try:
-        raw_listings = await redfin.search_listings(
-            city=city or "",
-            state=state,
-            beds_min=beds,
-            baths_min=min_baths,
-            price_min=min_price,
-            price_max=max_price,
-            property_type=property_type,
-            sqft_min=min_sqft,
-            limit=limit,
-        )
-    except Exception as exc:
-        logger.warning(f"Redfin failed: {exc}")
-        raw_listings = []
+    raw_listings = _get_cached(**cache_kwargs)
+    cache_hit = raw_listings is not None
 
-    if not raw_listings:
-        raise HTTPException(
-            status_code=502,
-            detail=f"No listings found for {city}. Try a different city name.",
-        )
+    if not cache_hit:
+        try:
+            raw_listings = await redfin.search_listings(
+                city=city or "",
+                state=state,
+                beds_min=beds,
+                baths_min=min_baths,
+                price_min=min_price,
+                price_max=max_price,
+                property_type=property_type,
+                sqft_min=min_sqft,
+                limit=limit,
+            )
+        except Exception as exc:
+            logger.warning(f"Redfin failed: {exc}")
+            raw_listings = []
 
+        if not raw_listings:
+            raise HTTPException(
+                status_code=502,
+                detail=f"No listings found for {city}. Try a different city name.",
+            )
+
+        # Cache raw Redfin results for 5 minutes
+        _set_cached(**cache_kwargs, data=raw_listings)
+
+    # Upsert all results into DB (enables enrichment, shared across searches)
     props = []
     for parsed in raw_listings:
         if not parsed.get("external_id"):
@@ -375,7 +371,19 @@ async def search_properties(
             background_tasks.add_task(_enrich_property, prop.id)
         props.append(prop)
 
-    return props
+    # Filter in-memory results to match exact search params (DB upsert stores broader city data)
+    if beds:
+        props = [p for p in props if (p.beds or 0) >= beds]
+    if min_baths:
+        props = [p for p in props if (p.baths or 0) >= min_baths]
+    if max_price:
+        props = [p for p in props if (p.list_price or 0) <= max_price]
+    if min_price:
+        props = [p for p in props if (p.list_price or 0) >= min_price]
+    if min_sqft:
+        props = [p for p in props if (p.sqft or 0) >= min_sqft]
+
+    return props[:limit]
 
 
 
