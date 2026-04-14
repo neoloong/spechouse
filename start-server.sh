@@ -3,6 +3,10 @@
 # Waits for Docker, starts DB, then backend + ngrok
 
 cd "$(dirname "$0")"
+LOG=/tmp/spechouse_backend.log
+NGROK_LOG=/tmp/ngrok.log
+
+echo "[spechouse] $(date) Starting..." >> $LOG
 
 echo "[spechouse] Waiting for Docker..."
 for i in $(seq 1 30); do
@@ -19,11 +23,22 @@ for i in $(seq 1 20); do
   sleep 2
 done
 
+# Kill any existing uvicorn/ngrok on these ports
+pkill -f "uvicorn backend.main:app" 2>/dev/null
+pkill -f "ngrok http 8000" 2>/dev/null
+sleep 1
+
 echo "[spechouse] Starting backend..."
-.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+cd /Users/chao/.openclaw/workspace/spechouse
+source backend/.venv/bin/activate
+PYTHONPATH=. uvicorn backend.main:app --host 0.0.0.0 --port 8000 >> $LOG 2>&1 &
+UVICORN_PID=$!
+echo "[spechouse] uvicorn PID=$UVICORN_PID" >> $LOG
 
 echo "[spechouse] Starting ngrok..."
-/opt/homebrew/bin/ngrok http 8000 --domain=matchable-hildegard-untransformed.ngrok-free.dev --log=stdout >> /tmp/ngrok.log 2>&1 &
+/opt/homebrew/bin/ngrok http 8000 --domain=matchable-hildegard-untransformed.ngrok-free.dev --log=stdout >> $NGROK_LOG 2>&1 &
+NGROK_PID=$!
+echo "[spechouse] ngrok PID=$NGROK_PID" >> $NGROK_LOG
 
-echo "[spechouse] All services started."
+echo "[spechouse] All services started. uvicorn=$UVICORN_PID ngrok=$NGROK_PID"
 wait
