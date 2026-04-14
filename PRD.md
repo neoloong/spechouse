@@ -1,186 +1,148 @@
-# SpecHouse PRD — Product Requirements Document
-> 最后更新：2026-02-27 | Owner: Neo
+# SpecHouse PRD
+
+**Last updated:** 2026-04-13
+**Status:** Draft → In Review
+**Author:** Neo
 
 ---
 
-## 1. 产品愿景
+## 1. Problem Statement
 
-**成为房产决策的终极平台** — 从搜索、对比、分析到成交，全程陪伴买家和经纪人，最终比肩 Zillow、Redfin，成为房产数据领域的基础设施。
+Home buyers comparing multiple properties face a fragmented experience:
 
-**一句话定位：** 房产界的 GSMarena × Levels.fyi — 把所有你需要的数据聚合在一起，让买房决策像比手机参数一样简单。
-
----
-
-## 2. 用户痛点（产品起点）
-
-**创始人自身痛点（最真实的 PMF 来源）：**
-- 看房时要在 Zillow、Redfin、HowLoud、Google Maps 之间反复横跳
-- 没有工具能把多套房子的核心指标放在一起 side-by-side 对比
-- 价格信息分散，难以判断一套房是否真的值这个价
-
-**经纪人痛点：**
-- 接了买房客户后要手工整理报告确定售价预期，费时费力
-- 没有专业工具展示给客户，只能截图拼凑
-- 缺乏数据支撑来说服客户做决定
+- Price, school, noise, and crime data scattered across Zillow, Redfin, HowLoud, and Google Maps
+- No tool exists to put 2-4 properties side-by-side with a meaningful spec comparison
+- Agents spend hours manually assembling comparison reports for clients
+- Existing platforms are ad-driven and prioritize agent referrals over buyer interests
 
 ---
 
-## 3. 目标用户
+## 2. Target Users
 
-### 主要用户（B2C）
-- **活跃购房者**：正在看房、对比多套、需要做决策的人
-- 特征：数据敏感、厌恶广告干扰、愿意为效率付费
+### Primary
+**Home buyers actively comparing 2+ properties**
+- Data-driven, want transparency, tired of ads
+- Comparing before making an offer
 
-### 次要用户（B2B）
-- **买方经纪人**：需要给客户生成对比报告、建立专业形象
-- **投资者**：关注租金回报率、cap rate、价格趋势
+### Secondary
+**Buyer's agents**
+- Need to present professional comparison reports to clients
+- Want a tool that makes them look prepared and thorough
 
-### 长期用户（平台生态）
-- **AI Agent**：通过 API 调用房产数据做自动化决策
-- **开发商 / PropTech 公司**：购买数据或 API 授权
-
----
-
-## 4. 核心功能模块
-
-### 4.1 数据聚合（核心竞争力）
-- **多源价格**：Redfin 实时挂牌价 + Zillow Zestimate + AVM 估价对比
-- **噪音数据**：HowLoud API 实际分贝值 + 噪音等级标签
-- **学区数据**：3英里内学校列表、评分、距离
-- **犯罪数据**：区域犯罪指数（接入免费开放数据）
-- **租金数据**：HUD FMR 基准 + 市场租金估算
-- **价格趋势**：90天历史走势、涨跌幅
-
-### 4.2 对比引擎（核心体验，来自 GSMarena + Levels.fyi）
-- Side-by-side 对比最多 4 套房产
-- 绿色高亮最优值，红色标注最差值
-- "仅显示差异项"一键过滤
-- 对比结果生成永久分享链接
-- PDF 导出（经纪人报告用）
-
-### 4.3 SpecHouse 评分系统（差异化壁垒）
-综合评分 0-100，子维度：
-- **价值分**：挂牌价 vs AVM 折扣程度
-- **投资分**：租金回报率 + 价格趋势
-- **环境分**：噪音 + 犯罪（越低越好，取反）
-- **生活分**（规划中）：学区 + 通勤 + 配套设施
-
-### 4.4 AI 买房助手（中期，12个月）
-- 自然语言搜索："找一个 50 万以内、学区好、安静的 3 居室"
-- 对话式问答：解释评分、分析利弊、给出建议
-- 基于用户偏好的个性化推荐
-
-### 4.5 社区与用户内容（长期，18-24个月）
-- 房产真实评价（买过或住过的用户）
-- 匿名社区讨论（类 Reddit，增加粘性）
-- 用户打分（独立于官方评分的民间评价）
-
-### 4.6 API 平台（长期，AI Agent 时代）
-- RESTful API：搜索、对比、评分、数据拉取
-- Webhook：房价变动、新上市房源推送
-- MCP / Tool Call 接口：供 AI Agent 直接调用
-- 定价：按调用量计费（类 OpenAI API 模式）
+### Out of Scope (for now)
+- Sellers
+- Renters
+- Commercial real estate
+- AI agent / API consumers
 
 ---
 
-## 5. 技术架构
+## 3. Product Overview
 
-| 层级 | 技术 | 说明 |
-|---|---|---|
-| 前端 | Next.js 15 + Tailwind + Shadcn UI | SEO 友好，服务器组件 |
-| 后端 | FastAPI (Python) | 数据聚合 + 评分引擎 |
-| 数据库 | PostgreSQL 16 + PostGIS | 结构化搜索 + 地理查询 |
-| 部署 | Docker + 云服务 | 本地开发 → 上线 |
-| 数据源 | Redfin (免费) + HUD FMR (免费) + HowLoud + Zillow | 多源聚合 |
+SpecHouse is a real estate comparison platform that aggregates structured property data — price, sqft, schools, noise, crime, rental estimates — and lets users compare any 2-4 properties spec-by-spec in a single view.
+
+Analogy: GSMarena for homes. Levels.fyi for salaries.
 
 ---
 
-## 6. 商业模式
+## 4. Feature Requirements
 
-### 6.1 短期（0-6个月）：验证 + 冷启动
-- 全免费，积累用户和反馈
-- 重点：PMF 验证，找到愿意付钱的用户
+### 4.1 — Property Search
+**The user searches for properties by city and gets a list of results.**
 
-### 6.2 中期（6-18个月）：SaaS 订阅
-| 层级 | 价格 | 功能 |
-|---|---|---|
-| Free | $0 | 搜索 + 基础对比（限 2 套）|
-| Pro | $19/月 | 无限对比 + PDF 导出 + 分享链接 + 历史趋势 |
-| Agent | $79/月 | Pro + 多账号 + 客户报告品牌定制 + 批量导出 |
+- Search by city name (e.g. "San Francisco CA", "Austin TX")
+- Results display: address, price, beds, baths, sqft, photo thumbnail
+- Each result shows: overall score badge, key investment metrics
+- User can filter by: beds, baths, price range, property type, sqft
+- List is sorted by SpecHouse overall score (descending) by default
 
-### 6.3 长期（18个月+）：平台化
-- **API 授权**：B2B 卖数据和评分算法给 PropTech 公司
-- **Lead Gen**：向贷款机构、律师、搬家公司收推荐费
-- **数据洞察报告**：向机构投资者卖城市/区域分析报告
-- **广告**（克制）：精准投放，不污染核心体验
+### 4.2 — Property Detail
+**The user views full details for a single property.**
 
-### 6.4 终极目标
-成为房产数据领域的基础设施，API 被大量 AI Agent 调用 → 按量收费 → 上市
+- All specs displayed in structured sections: Financials, Structure, Schools, Environment, Lifestyle
+- SpecHouse scores shown prominently (overall + sub-scores: value, investment, environment)
+- Schools within 3 miles listed with rating, type, and distance
+- Noise level (dB) and label shown if available
+- Crime safety score shown if available
+- "Add to Compare" button on every card and detail page
 
----
+### 4.3 — Spec Comparison
+**The user selects 2-4 properties and compares them side-by-side.**
 
-## 7. 竞争分析
+- Full spec-by-spec table across all selected properties
+- Highest value in each row highlighted green, lowest highlighted red
+- Sections mirror detail page: Financials, Market Comparison, Structure, Schools, Environment, Lifestyle
+- Shareable URL generated for the comparison (e.g. `/compare?eids=redfin_123,redfin_456`)
+- Comparison accessible without login
 
-| 竞品 | 弱点 | SpecHouse 优势 |
-|---|---|---|
-| Zillow | 广告驱动、数据浅、无对比 | 无广告、深度数据、对比引擎 |
-| Redfin | 以经纪人为中心、无综合评分 | 买家视角、独立评分、多源聚合 |
-| GSMarena | 只有手机 | 同样的体验，用在房产 |
-| Levels.fyi | 只有薪资 | 同样的透明度理念，用在房价 |
+### 4.4 — Scoring System
+**Every property receives a 0-100 overall score and three sub-scores.**
 
-**核心壁垒：** 评分算法 + 数据聚合深度 + 社区内容（长期）
+- **Value score:** how price compares to AVM estimate (discount → higher score)
+- **Investment score:** rental yield + cap rate weighted
+- **Environment score:** noise level + crime safety (inverse — lower noise/crime → higher score)
+- Overall score = weighted average of sub-scores
+- Scores are unitless and comparable across markets
 
----
+### 4.5 — PDF Report (Agent use)
+**An agent generates a branded PDF report from a comparison.**
 
-## 8. 路线图
+- PDF includes: selected properties, all specs, scores, schools, recommended property
+- Agent name / brokerage logo customizable
+- One-click generate from compare page
+- Download as PDF, no email required
 
-### Phase 1 — MVP 可用（当前）
-- [x] 基础搜索（Redfin 真实数据）
-- [x] 房产对比（最多 4 套）
-- [x] SpecHouse 评分（租金收益 + 噪音 + 价格偏差）
-- [x] HUD FMR 租金估算
-- [ ] 分享链接
-- [ ] 移动端对比体验
-- [ ] PDF 导出
+### 4.6 — User Accounts
+**Users can save searches, favorite properties, and track history.**
 
-### Phase 2 — 公开上线
-- [ ] 部署到公网
-- [ ] Zillow AVM 数据接入
-- [ ] 犯罪数据接入（免费开放数据）
-- [ ] SEO 优化（城市静态页）
-- [ ] 用户账号系统
-
-### Phase 3 — 商业化
-- [ ] Stripe 付款接入
-- [ ] Pro / Agent 付费层
-- [ ] 经纪人品牌定制报告
-- [ ] AI 自然语言搜索完善
-
-### Phase 4 — 平台化
-- [ ] 社区评价系统
-- [ ] 公开 API + 文档
-- [ ] AI Agent 接口（MCP）
-- [ ] 机构数据报告
+- Sign up with email + password or Google OAuth
+- Saved properties persist across sessions
+- Search history accessible from account dashboard
 
 ---
 
-## 9. 成功指标（KPIs）
+## 5. User Stories
 
-| 阶段 | 指标 | 目标 |
-|---|---|---|
-| MVP | 周活用户 | 50人 |
-| 上线 | 月活用户 | 1,000人 |
-| 商业化 | 付费用户 | 100人 |
-| 规模化 | MRR | $10,000 |
-| 上市前 | ARR | $10M+ |
+### As a home buyer
+- I can search by city and see results in < 3 seconds
+- I can add properties to a compare tray and view a side-by-side table
+- I can understand at a glance which property has the best value / investment potential
+- I can share a comparison URL with my partner or agent
+
+### As a buyer's agent
+- I can generate a professional PDF report in one click
+- I can customize the report with my name and brokerage
+- I can send the shareable link to my client before a showing
 
 ---
 
-## 10. 当前技术债 / 已知问题
+## 6. Out of Scope
 
-- [ ] 犯罪数据空缺（crime_score = null）
-- [ ] 噪音数据需 HowLoud API key
-- [ ] 房产图片首次加载异步延迟
-- [ ] 移动端对比表格不可用
-- [ ] 无 SEO（全客户端渲染）
-- [ ] 无用户系统
+The following are explicitly not part of this PRD:
+
+- Property listing / posting (we are not a listing site)
+- Mortgage calculator integration
+- Neighborhood reviews / community content
+- Mobile native app
+- API for third-party developers
+- Scheduling / agent booking
+
+---
+
+## 7. Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| Search completion rate | > 70% of searches return ≥ 1 result |
+| Compare conversion | > 20% of searchers add a 2nd property to compare tray |
+| Time to first compare | < 2 minutes from landing on site |
+| Agent PDF download | ≥ 1 per week within 30 days of launch |
+| NPS (30-day survey) | ≥ 40 |
+
+---
+
+## 8. Open Questions
+
+1. Should scores be calibrated per-city or absolute across all markets?
+2. Do we require login to generate PDF, or allow anonymous with watermark?
+3. What is the data retention policy for saved searches?
