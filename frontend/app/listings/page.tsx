@@ -11,10 +11,57 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { searchProperties, type PropertyListItem } from "@/lib/api";
 import { useCompare } from "@/hooks/useCompare";
-import { Sparkles, X, RefreshCw } from "lucide-react";
+import { Sparkles, X, RefreshCw, AlertCircle, Home } from "lucide-react";
 import { analytics } from "@/lib/analytics";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SearchApiProperty {
+  id: number;
+  address: string;
+  city: string;
+  state: string;
+  price: number;
+  beds: number;
+  baths: number;
+  sqft: number;
+  photoUrl: string;
+  overallScore: number;
+  lastUpdated: string;
+}
+
+interface SearchApiResult {
+  properties: SearchApiProperty[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Convert API property to PropertyListItem for PropertyCard
+function adaptProperty(p: SearchApiProperty): PropertyListItem {
+  return {
+    id: p.id,
+    address_display: p.address,
+    city: p.city,
+    state: p.state,
+    list_price: p.price,
+    beds: p.beds,
+    baths: p.baths,
+    sqft: p.sqft,
+    photo_url: p.photoUrl,
+    status: "for_sale",
+    last_enriched: p.lastUpdated,
+    agg_data: {
+      scores: {
+        overall: p.overallScore,
+      },
+    },
+  };
+}
+
+// ─── Content component ────────────────────────────────────────────────────────
 
 function ListingsContent() {
   const searchParams = useSearchParams();
@@ -48,60 +95,47 @@ function ListingsContent() {
 
   const { ids: compareIds, toggle: toggleCompare } = useCompare();
 
-  const [properties, setProperties] = useState<PropertyListItem[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [view, setView]             = useState<"grid" | "map">("grid");
+  const [apiProperties, setApiProperties] = useState<SearchApiProperty[]>([]);
+  const [properties, setProperties]       = useState<PropertyListItem[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
+  const [view, setView]                     = useState<"grid" | "map">("grid");
 
-  // ── Fetch ───────────────────────────────────────────────────────────────────
-  useEffect(() => {
+  // ── Fetch from new search API ──────────────────────────────────────────────
+  const fetchProperties = useCallback(async () => {
+    if (!city && !zipCode) return;
+
     setLoading(true);
     setError(null);
-    const params = {
-      city:         city || undefined,
-      state:        stateCode || undefined,
-      zip_code:     zipCode || undefined,
-      beds:         bedsParam ? Number(bedsParam) : undefined,
-      min_baths:    minBathsParam ? Number(minBathsParam) : undefined,
-      min_price:    minPriceParam ? Number(minPriceParam) : undefined,
-      max_price:    maxPriceParam ? Number(maxPriceParam) : undefined,
-      property_type: propertyType || undefined,
-      min_sqft:     minSqftParam ? Number(minSqftParam) : undefined,
-    };
 
-    // Track search event
-    analytics.trackSearch({
-      city: city || undefined,
-      zipCode: zipCode || undefined,
-      beds: bedsParam ? Number(bedsParam) : undefined,
-      maxPrice: maxPriceParam ? Number(maxPriceParam) : undefined,
-      propertyType: propertyType || undefined,
-    });
-    
-    // Optimistic: show empty state immediately, load in background
-    searchProperties(params)
-      .then((props) => {
-        setProperties(props);
-        // If any props are missing photos, poll to pick them up as enrichment completes
-        const missingPhotos = props.some((p) => !p.photo_url);
-        if (missingPhotos) {
-          const t = setTimeout(() => {
-            searchProperties(params).then((updated) => {
-              setProperties((prev) =>
-                prev.map((p) => {
-                  const u = updated.find((x) => x.id === p.id);
-                  return u?.photo_url ? { ...p, photo_url: u.photo_url, agg_data: u.agg_data } : p;
-                })
-              );
-            }).catch(() => {});
-          }, 7000);
-          return () => clearTimeout(t);
-        }
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    try {
+      // Build the API URL manually since we're using our own mock API
+      const params = new URLSearchParams();
+      if (city) params.set("q", city);
+      if (zipCode) params.set("q", zipCode);
+      params.set("page", "1");
+
+      const res = await fetch(`/api/search?${params.toString()}`, {
+        cache: "no-store",
+        headers: { "ngrok-skip-browser-warning": "true" },
+      });
+
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+
+      const data: SearchApiResult = await res.json();
+      setApiProperties(data.properties);
+      setProperties(data.properties.map(adaptProperty));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load properties");
+    } finally {
+      setLoading(false);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [city, zipCode, stateCode, bedsParam, minBathsParam, minPriceParam, maxPriceParam, propertyType, minSqftParam]);
+  }, [city, zipCode]);
+
+  useEffect(() => {
+    fetchProperties();
+  }, [fetchProperties]);
 
   // ── Filter change → URL update ───────────────────────────────────────────
   const handleFilterChange = useCallback((f: FilterState) => {
@@ -118,6 +152,12 @@ function ListingsContent() {
     router.replace(`/listings?${p.toString()}`);
   }, [router, searchParams]);
 
+  // ── Result count label ───────────────────────────────────────────────────
+  const resultLabel = loading
+    ? "Searching…"
+    : error
+      ? null
+      : `${properties.length} property${properties.length !== 1 ? "s" : ""} in ${searchLabel}`;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -134,7 +174,7 @@ function ListingsContent() {
             <Button size="sm" variant={view === "grid" ? "default" : "outline"} onClick={() => setView("grid")}>
               Grid
             </Button>
-            <Button size="sm" variant={view === "map"  ? "default" : "outline"} onClick={() => setView("map")}>
+            <Button size="sm" variant={view === "map" ? "default" : "outline"} onClick={() => setView("map")}>
               Map
             </Button>
           </div>
@@ -168,77 +208,96 @@ function ListingsContent() {
         {/* Result count */}
         <div className="mb-4 flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            {loading
-              ? "Searching…"
-              : error
-                ? null
-                : `${properties.length} properties found${searchLabel ? ` in ${searchLabel}` : ""}`
-            }
+            {resultLabel}
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => {
-              setLoading(true);
-              const params = {
-                city: city || undefined,
-                state: stateCode || undefined,
-                zip_code: zipCode || undefined,
-                beds: bedsParam ? Number(bedsParam) : undefined,
-                min_baths: minBathsParam ? Number(minBathsParam) : undefined,
-                min_price: minPriceParam ? Number(minPriceParam) : undefined,
-                max_price: maxPriceParam ? Number(maxPriceParam) : undefined,
-                property_type: propertyType || undefined,
-                min_sqft: minSqftParam ? Number(minSqftParam) : undefined,
-              };
-              searchProperties(params)
-                .then(setProperties)
-                .catch((e) => setError(e.message))
-                .finally(() => setLoading(false));
-            }}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchProperties}
             disabled={loading}
             className="text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className={`w-3 h-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
 
+        {/* ── Error state ── */}
         {error && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive mb-4">
-            {error} — make sure the backend is running and your API key is configured.
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-destructive font-medium">Failed to load properties</p>
+              <p className="text-xs text-destructive/80">{error}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={fetchProperties} className="shrink-0">
+              Try again
+            </Button>
           </div>
         )}
 
+        {/* ── Map view ── */}
         {view === "map" ? (
           <div className="h-[70vh]">
             {loading ? (
               <Skeleton className="w-full h-full rounded-lg" />
             ) : (
-              <MapView properties={properties} onMarkerClick={(id) => router.push(`/property/${id}`)} />
+              <MapView
+                properties={properties}
+                onMarkerClick={(id) => router.push(`/property/${id}`)}
+              />
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {loading
-              ? Array.from({ length: 8 }).map((_, i) => (
-                  <Skeleton key={i} className="h-64 rounded-xl" />
-                ))
-              : properties.map((p) => (
-                  <PropertyCard
-                    key={p.id}
-                    property={p}
-                    compareIds={compareIds}
-                    onToggleCompare={toggleCompare}
-                  />
-                ))}
-          </div>
+          <>
+            {/* ── Grid ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {loading
+                ? Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-64 rounded-xl" />
+                  ))
+                : properties.length > 0
+                  ? properties.map((p) => (
+                      <PropertyCard
+                        key={p.id}
+                        property={p}
+                        compareIds={compareIds}
+                        onToggleCompare={toggleCompare}
+                      />
+                    ))
+                  : null}
+            </div>
+
+            {/* ── Empty state ── */}
+            {!loading && !error && properties.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Home className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-1">
+                  No results for {searchLabel || "this search"}
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Try a nearby city or broaden your filters to see more properties.
+                </p>
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={() => router.push("/")}>
+                    Go home
+                  </Button>
+                  <Button size="sm" onClick={() => router.push("/listings")}>
+                    Browse all
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
-
     </div>
   );
 }
+
+// ─── Page export ─────────────────────────────────────────────────────────────
 
 export default function ListingsPage() {
   return (
