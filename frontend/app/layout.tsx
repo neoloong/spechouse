@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import CompareTray from "@/components/CompareTray";
 import ChatWidget from "@/components/ChatWidget";
 import GA4Provider from "@/components/GA4Provider";
+import NavBar from "@/components/NavBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
         <Analytics />
         <SpeedInsights />
         <GA4Provider />
+        <NavBar />
         <ChatWidget />
         {children}
         <CompareTray />
