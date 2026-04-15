@@ -109,11 +109,12 @@ export default function PropertyCard({ property: p, compareIds, onToggleCompare 
             {env?.noise_label && (
               <span className="bg-gray-50 text-gray-600 px-2 py-0.5 rounded-full">
                 {env.noise_label === "Very Quiet" || env.noise_label === "Quiet"
-                  ? "🔇"
+                  ? "🔇 Quiet"
+                  : env.noise_label === "Moderate"
+                  ? "🔈 Moderate"
                   : env.noise_label === "Loud" || env.noise_label === "Very Loud"
-                  ? "🔉"
-                  : "🔈"}{' '}
-                {env.noise_label}
+                  ? "🔉 Loud"
+                  : "🔈 " + env.noise_label}
               </span>
             )}
           </div>
