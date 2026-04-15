@@ -219,9 +219,6 @@ export function CompareClient() {
       {/* Nav */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10 no-print">
         <div className="container mx-auto px-4 py-3 flex items-center gap-4">
-          <Link href="/" className="font-black text-lg shrink-0 no-print">
-            Spec<span className="text-primary">House</span>
-          </Link>
           <Link href={backUrl} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 no-print">
             <ArrowLeft className="w-3.5 h-3.5" /> Back to results
           </Link>
