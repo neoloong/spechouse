@@ -175,6 +175,7 @@ export default async function PropertyDetailPage({
     score_investment,
     score_environment,
     score_confidence,
+    cap_rate,
     avm_estimate,
     price_change_pct,
     last_sold_date,
@@ -347,6 +348,16 @@ export default async function PropertyDetailPage({
           )}
           <DetailRow label="HOA Fee" value={hoa_fee ? fmt(hoa_fee, "currency") + "/mo" : "None"} />
           <DetailRow label="Annual Property Tax" value={property_tax ? fmt(property_tax, "currency") : "—"} />
+          {cap_rate != null && (
+            <DetailRow
+              label="Gross Rental Yield"
+              value={
+                <span className="text-emerald-600 font-semibold">
+                  {cap_rate.toFixed(1)}%
+                </span>
+              }
+            />
+          )}
         </SectionCard>
 
         {/* Price History */}

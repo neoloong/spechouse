@@ -1,0 +1,17 @@
+# HowLoud API Key - ACTIVE
+
+## Key
+4meP1cqDBH2Rr6H2Lxj0H1gWVB5nANqA4yUb0VUn
+
+## API Details
+- **API Base URL:** https://api.howloud.com/v2/
+- **Endpoint:** GET /v2/score (retrieves soundscore for lat/lng)
+- **Authentication:** `api_key` query param or `X-API-Key` header
+- **Batch endpoint:** POST /v2/batch (up to 250 coordinates per request)
+
+## Registration
+- Free tier: < 2,500 queries/month
+- Registered email: (Chao registered manually)
+
+## Updated
+2026-04-15 by Cleo

@@ -101,6 +101,8 @@ class PropertyOut(PropertyBase):
     score_investment: Optional[float] = None
     score_environment: Optional[float] = None
     score_confidence: Optional[float] = None
+    cap_rate: Optional[float] = None
+    rental_yield_pct: Optional[float] = None
 
     model_config = {"from_attributes": True}
 

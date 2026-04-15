@@ -425,6 +425,11 @@ async def get_property(
 
     prop.score_confidence = None
 
+    # Map rental data to top-level fields
+    rental_data = agg_data.get("rental", {}) or {}
+    prop.cap_rate = rental_data.get("cap_rate")
+    prop.rental_yield_pct = rental_data.get("yield_pct")
+
     return prop
 
 
