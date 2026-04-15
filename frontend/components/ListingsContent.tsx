@@ -93,7 +93,7 @@ export default function ListingsContent() {
     minSqft:  minSqftParam  ? Number(minSqftParam)  : 0,
   };
 
-  const { ids: compareIds, toggle: toggleCompare } = useCompare();
+  const { ids: compareIds, toggle: toggleCompare, cacheProperties } = useCompare();
 
   const [apiProperties, setApiProperties] = useState<SearchApiProperty[]>([]);
   const [properties, setProperties]       = useState<PropertyListItem[]>([]);
@@ -125,6 +125,12 @@ export default function ListingsContent() {
       const data: SearchApiResult = await res.json();
       setApiProperties(data.properties);
       setProperties(data.properties.map(adaptProperty));
+      cacheProperties(data.properties.map(p => ({
+        id: p.id,
+        address: p.address,
+        price: p.price ?? 0,
+        score: p.overallScore,
+      })));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load properties");
     } finally {
