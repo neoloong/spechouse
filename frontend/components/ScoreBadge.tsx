@@ -1,3 +1,5 @@
+"use client";
+
 import { scoreColor } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
