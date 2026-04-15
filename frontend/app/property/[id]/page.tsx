@@ -41,7 +41,7 @@ export async function generateMetadata({
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 interface RowProps {
-  label: string;
+  label: React.ReactNode;
   value: React.ReactNode;
 }
 
@@ -74,7 +74,7 @@ function SectionCard({
 }
 
 // Score bar with fill percentage
-function ScoreBar({ score, label, weight }: { score: number; label: string; weight: number }) {
+function ScoreBar({ score, label, weight }: { score: number; label: React.ReactNode; weight: number }) {
   const pct = Math.round((score / 10) * 100);
   return (
     <div className="flex items-center gap-3">

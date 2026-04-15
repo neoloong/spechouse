@@ -370,7 +370,7 @@ function DesktopCompare({ properties, diffsOnly, setDiffsOnly }: Props & {
               const visibleRows = rows.filter((row) => {
                 if (!diffsOnly) return true;
                 if (!row.key) return false;
-                const vals = properties.map((p) => p[row.key!]);
+                const vals = properties.map((p) => p[row.key!]) as CellValue[];
                 return !allSame(vals);
               });
               if (visibleRows.length === 0) return null;

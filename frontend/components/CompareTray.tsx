@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useCompare, type PropertySpec } from "@/hooks/useCompare";
@@ -14,7 +15,7 @@ export default function CompareTray() {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const trayRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Get property data for each id
@@ -150,7 +151,7 @@ export default function CompareTray() {
 
       {/* Tray pill */}
       <button
-        ref={trayRef}
+        ref={trayRef as React.Ref<HTMLButtonElement>}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(

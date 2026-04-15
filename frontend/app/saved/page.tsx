@@ -191,7 +191,7 @@ const MOCK_PROPERTIES: PropertyListItem[] = [
     beds: 4,
     baths: 2.5,
     sqft: 2100,
-    photo_url: null,
+    photo_url: undefined,
     status: "for_sale",
     last_enriched: new Date().toISOString(),
     agg_data: {
@@ -207,7 +207,7 @@ const MOCK_PROPERTIES: PropertyListItem[] = [
     beds: 3,
     baths: 2,
     sqft: 1850,
-    photo_url: null,
+    photo_url: undefined,
     status: "for_sale",
     last_enriched: new Date().toISOString(),
     agg_data: {
@@ -223,7 +223,7 @@ const MOCK_PROPERTIES: PropertyListItem[] = [
     beds: 3,
     baths: 2,
     sqft: 2200,
-    photo_url: null,
+    photo_url: undefined,
     status: "for_sale",
     last_enriched: new Date().toISOString(),
     agg_data: {
@@ -239,7 +239,7 @@ const MOCK_PROPERTIES: PropertyListItem[] = [
     beds: 4,
     baths: 2.5,
     sqft: 2400,
-    photo_url: null,
+    photo_url: undefined,
     status: "for_sale",
     last_enriched: new Date().toISOString(),
     agg_data: {

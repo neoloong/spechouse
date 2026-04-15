@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import CompareClient from "@/components/CompareClient";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ── SEO metadata (server component, runs at build/request time) ─────────────
 
@@ -25,5 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ComparePage() {
-  return <CompareClient />;
+  return (
+    <Suspense fallback={<div className="p-8"><Skeleton className="h-64 w-full" /></div>}>
+      <CompareClient />
+    </Suspense>
+  );
 }

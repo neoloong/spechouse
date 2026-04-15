@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import ListingsContent from "@/components/ListingsContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -18,5 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function ListingsPage() {
-  return <ListingsContent />;
+  return (
+    <Suspense fallback={<div className="p-8"><Skeleton className="h-64 w-full" /></div>}>
+      <ListingsContent />
+    </Suspense>
+  );
 }
