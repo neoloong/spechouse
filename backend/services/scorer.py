@@ -297,6 +297,7 @@ async def enrich_agg_data(
     agg["environment"] = {
         "noise_db": noise_data.get("noise_db"),
         "noise_label": noise_data.get("noise_label"),
+        "noise_detail": noise_data.get("noise_detail"),
         "crime_score": crime_safety_score,
         **({"crime_label": crime_data.get("label")} if crime_data and crime_data.get("label") else {}),
     }
