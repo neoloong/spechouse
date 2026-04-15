@@ -38,13 +38,9 @@ def _build_spec_row(prop: PropertyORM) -> dict:
     if prop.list_price and prop.sqft:
         price_per_sqft = round(float(prop.list_price) / prop.sqft, 2)
 
-    # Get noise from lifestyle
-    noise_keys = ["silent_zone", "quiet_area", "low_noise", "noisy_area"]
-    noise_data = None
-    for k in noise_keys:
-        if k in lifestyle:
-            noise_data = lifestyle[k]
-            break
+    # Get noise from environment section (HowLoud API data)
+    noise_score = env.get("noise_db")
+    noise_label = env.get("noise_label")
 
     return {
         "id": prop.id,
@@ -69,8 +65,8 @@ def _build_spec_row(prop: PropertyORM) -> dict:
         "property_type": prop.property_type,
         "hoa_fee": float(prop.hoa_fee) if prop.hoa_fee else None,
         "property_tax": float(prop.property_tax) if prop.property_tax else None,
-        "noise_score": noise_data.get("score") if noise_data else None,
-        "noise_label": noise_data.get("label") if noise_data else None,
+        "noise_score": noise_score,
+        "noise_label": noise_label,
         "crime_score": crime.get("safety_score"),
         "crime_label": crime.get("label"),
         "score_overall": scores.get("overall"),
