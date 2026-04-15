@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, ArrowLeft } from "lucide-react";
+import { Heart, Search, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PropertyCard from "@/components/PropertyCard";
 import { Skeleton } from "@/components/ui/skeleton";
