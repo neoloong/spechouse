@@ -298,7 +298,7 @@ async def enrich_agg_data(
         "noise_db": noise_data.get("noise_db"),
         "noise_label": noise_data.get("noise_label"),
         "crime_score": crime_safety_score,
-        **({"crime_label": crime_data.get("label")} if crime_data.get("label") else {}),
+        **({"crime_label": crime_data.get("label")} if crime_data and crime_data.get("label") else {}),
     }
 
     agg["scores"] = compute_scores(
