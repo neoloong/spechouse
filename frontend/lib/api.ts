@@ -113,6 +113,11 @@ export interface PropertySpec {
   noise_db?: number;
   noise_score?: number;
   noise_label?: string;
+  noise_detail?: {
+    traffic?: number;
+    local?: number;
+    airports?: number;
+  };
   crime_score?: number;
   crime_label?: string;
   crime_safety_score?: number;
@@ -239,7 +244,9 @@ function mockPropertyDetail(id: string): PropertySpec {
     days_on_market: 42,
     // Environment
     noise_db: 45,
+    noise_score: 7.2,
     noise_label: "Quiet",
+    noise_detail: { traffic: 42.5, local: 38.1, airports: 0.0 },
     crime_safety_score: 78,
     crime_label: "Low",
     walkability_score: 92,
