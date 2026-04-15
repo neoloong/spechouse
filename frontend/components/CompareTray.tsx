@@ -15,7 +15,6 @@ export default function CompareTray() {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const trayRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Get property data for each id
@@ -33,8 +32,6 @@ export default function CompareTray() {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        trayRef.current &&
-        !trayRef.current.contains(target) &&
         dropdownRef.current &&
         !dropdownRef.current.contains(target)
       ) {
@@ -149,45 +146,48 @@ export default function CompareTray() {
         </div>
       )}
 
-      {/* Tray pill */}
-      <button
-        ref={trayRef as React.Ref<HTMLButtonElement>}
-        type="button"
-        onClick={() => {
-          if (ready) {
-            handleCompareNow();
-          } else if (ids.length === 1) {
-            router.push("/listings");
-          } else {
-            setOpen((v) => !v);
-          }
-        }}
+      {/* Tray pill — split into two zones */}
+      <div
         className={cn(
-          "flex items-center gap-3 bg-background border shadow-2xl rounded-full px-5 py-2.5 transition-all",
+          "flex items-center gap-3 bg-background border shadow-2xl rounded-full px-1 py-1 transition-all",
           open ? "ring-2 ring-primary/30" : "hover:shadow-3xl"
         )}
-        aria-label={`Compare tray: ${ids.length} properties selected`}
       >
-        <span className="flex items-center gap-1.5">
+        {/* Left: property count → toggle dropdown */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 pl-3 pr-4 py-2 cursor-pointer"
+          aria-label={`${ids.length} properties selected — click to view`}
+        >
           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-bold">
             {ids.length}
           </span>
           <span className="text-sm font-semibold tabular-nums">
             {ids.length === 1 ? "1 property" : `${ids.length} properties`}
           </span>
-        </span>
-        <span className="text-muted-foreground">|</span>
+        </button>
+
+        {/* Divider */}
+        <span className="text-muted-foreground/30 select-none">|</span>
+
+        {/* Right: compare action */}
         {ready ? (
-          <span className="flex items-center gap-1.5 text-sm text-primary font-medium">
+          <button
+            type="button"
+            onClick={handleCompareNow}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium cursor-pointer hover:bg-primary/90 transition-colors"
+            aria-label="Compare properties"
+          >
             <GitCompareArrows className="w-4 h-4" />
             Compare
-          </span>
+          </button>
         ) : (
-          <span className="text-sm text-muted-foreground">
+          <span className="px-4 py-2 text-sm text-muted-foreground">
             Need {2 - ids.length} more
           </span>
         )}
-      </button>
+      </div>
     </div>
   );
 }
