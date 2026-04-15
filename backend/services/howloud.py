@@ -8,7 +8,7 @@ import httpx
 
 from backend.config import settings
 
-BASE_URL = "https://api.howloud.com/score"
+BASE_URL = "https://api.howloud.com/v2/score"
 
 
 def _noise_label(score: float) -> str:
@@ -68,7 +68,7 @@ async def get_noise(lat: float, lng: float) -> dict:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
                 BASE_URL,
-                headers={"x-api-key": settings.HOWLOUD_API_KEY},
+                headers={"X-API-Key": settings.HOWLOUD_API_KEY},
                 params={"lat": lat, "lng": lng},
             )
             resp.raise_for_status()
