@@ -36,6 +36,7 @@ class PropertyORM(Base):
     agg_data: Mapped[dict] = mapped_column(JSONB, default=dict)
     geom: Mapped[Any] = mapped_column(Geography("POINT", 4326), nullable=True)
     last_enriched: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    noise_db: Mapped[Optional[float]] = mapped_column(Double)
     status: Mapped[Optional[str]] = mapped_column(String(20), default="for_sale")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
@@ -92,6 +93,7 @@ class PropertyBase(BaseModel):
 
 class PropertyOut(PropertyBase):
     id: int
+    noise_db: Optional[float] = None
     last_enriched: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
@@ -103,6 +105,7 @@ class PropertyListItem(BaseModel):
     external_id: Optional[str] = None
     address_display: str
     city: Optional[str] = None
+    noise_db: Optional[float] = None
     state: Optional[str] = None
     zip_code: Optional[str] = None
     beds: Optional[int] = None
