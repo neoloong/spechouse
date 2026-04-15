@@ -398,6 +398,33 @@ async def get_property(
     prop = result.scalar_one_or_none()
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
+
+    # Map agg_data.scores to top-level score fields
+    agg_data = prop.agg_data or {}
+    scores = agg_data.get("scores", {}) or {}
+    env_data = agg_data.get("environment", {}) or {}
+
+    prop.score_overall = scores.get("overall")
+    prop.score_value = scores.get("value")
+    prop.score_investment = scores.get("investment")
+
+    # Derive environment score from noise_db and crime_score
+    noise = env_data.get("noise_db") or prop.noise_db
+    crime = env_data.get("crime_score")
+    if noise is not None and crime is not None:
+        # Lower noise (dB) and lower crime = better environment
+        # noise_db typical range 30-80; crime_score typical range 0-100
+        noise_score = max(0, 100 - (noise - 30) * (100 / 50))  # 30dB=100, 80dB=0
+        prop.score_environment = round((noise_score + (100 - crime)) / 2, 1)
+    elif noise is not None:
+        prop.score_environment = max(0, 100 - (noise - 30) * (100 / 50))
+    elif crime is not None:
+        prop.score_environment = round(100 - crime, 1)
+    else:
+        prop.score_environment = None
+
+    prop.score_confidence = None
+
     return prop
 
 

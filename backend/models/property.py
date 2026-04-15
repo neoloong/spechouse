@@ -96,6 +96,11 @@ class PropertyOut(PropertyBase):
     noise_db: Optional[float] = None
     last_enriched: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    score_overall: Optional[float] = None
+    score_value: Optional[float] = None
+    score_investment: Optional[float] = None
+    score_environment: Optional[float] = None
+    score_confidence: Optional[float] = None
 
     model_config = {"from_attributes": True}
 
