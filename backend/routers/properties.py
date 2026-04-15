@@ -257,6 +257,7 @@ async def _enrich_property(prop_id: int) -> None:
             .where(PropertyORM.id == prop_id)
             .values(
                 agg_data=new_agg,
+                noise_db=noise_data.get("noise_db"),
                 last_enriched=datetime.utcnow(),
                 photo_url=photo_url,
                 photos=photos,

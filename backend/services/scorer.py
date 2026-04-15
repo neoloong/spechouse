@@ -196,6 +196,10 @@ async def enrich_agg_data(
     beds: Optional[int] = None,
     property_type: Optional[str] = None,
 ) -> dict:
+    """Enrich agg data with rental estimates, environment (noise_db, crime), and scores.
+
+    noise_db is extracted from noise_data and passed to compute_scores() for scoring.
+    """
     agg = dict(current_agg)
 
     # ── Rental estimate (3-tier priority) ───────────────────────────────────

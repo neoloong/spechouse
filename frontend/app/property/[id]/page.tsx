@@ -232,7 +232,9 @@ export default async function PropertyDetailPage({
     price_history,
     days_on_market,
     noise_db,
+    noise_score,
     noise_label,
+    noise_detail,
     crime_safety_score,
     crime_label,
     walkability_score,
@@ -514,6 +516,33 @@ export default async function PropertyDetailPage({
                 </span>
               }
             />
+          )}
+          {noise_detail && (
+            <div className="py-2.5 border-b last:border-0">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs text-muted-foreground">Noise Breakdown</span>
+              </div>
+              <div className="flex gap-4 text-xs">
+                {noise_detail.traffic != null && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-muted-foreground">🚗</span>
+                    <span>Traffic {noise_detail.traffic}</span>
+                  </span>
+                )}
+                {noise_detail.local != null && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-muted-foreground">🏙️</span>
+                    <span>Local {noise_detail.local}</span>
+                  </span>
+                )}
+                {noise_detail.airports != null && noise_detail.airports > 0 && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-muted-foreground">✈️</span>
+                    <span>Airports {noise_detail.airports}</span>
+                  </span>
+                )}
+              </div>
+            </div>
           )}
           {crime_safety_score != null && (
             <DetailRow
