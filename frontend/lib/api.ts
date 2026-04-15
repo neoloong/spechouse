@@ -78,6 +78,7 @@ export interface PropertySpec {
   external_id?: string;
   address_display: string;
   photo_url?: string;
+  photos?: string[];
   city?: string;
   state?: string;
   zip_code?: string;
@@ -90,7 +91,7 @@ export interface PropertySpec {
   rental_estimate?: number;
   rental_yield_pct?: number;
   cap_rate?: number;
-  zillow_city_median?: number;  // Zillow Q1 2025 city median for this bedroom count
+  zillow_city_median?: number;
   // Specs
   beds?: number;
   baths?: number;
@@ -100,21 +101,37 @@ export interface PropertySpec {
   property_type?: string;
   hoa_fee?: number;
   property_tax?: number;
+  parking?: string;
+  // Financials (detail page)
+  avm_estimate?: number;
+  price_change_pct?: number;
+  last_sold_date?: string;
+  last_sold_price?: number;
+  price_history?: { date: string; price: number; event: string }[];
+  days_on_market?: number;
   // Environment
   noise_db?: number;
   noise_score?: number;
   noise_label?: string;
   crime_score?: number;
   crime_label?: string;
-  // Schools
-  school_elementary?: string;
-  school_middle?: string;
-  school_high?: string;
+  crime_safety_score?: number;
+  walkability_score?: number;
+  // Lifestyle scores
+  lifestyle_walk_score?: number;
+  lifestyle_transit_score?: number;
+  lifestyle_bike_score?: number;
   // Scores
   score_overall?: number;
   score_value?: number;
   score_investment?: number;
+  score_environment?: number;
+  score_confidence?: number;
   // Schools
+  schools?: { name: string; type: string; rating: number; distance_mi: number }[];
+  school_elementary?: string;
+  school_middle?: string;
+  school_high?: string;
   schools_count?: number;
   nearest_school?: string;
 }
@@ -171,6 +188,90 @@ export async function searchProperties(params: SearchParams): Promise<PropertyLi
 
 export async function getProperty(id: number): Promise<PropertyDetail> {
   return fetchJson<PropertyDetail>(`/properties/${id}`);
+}
+
+// ─── Mock data for demo / development ─────────────────────────────────────────
+
+function mockPropertyDetail(id: string): PropertySpec {
+  return {
+    id: Number(id),
+    address_display: "742 Geary St, San Francisco, CA 94109",
+    city: "San Francisco",
+    state: "CA",
+    zip_code: "94109",
+    latitude: 37.7849,
+    longitude: -122.4194,
+    status: "for_sale",
+    list_price: 1_295_000,
+    price_per_sqft: 870,
+    beds: 3,
+    baths: 2,
+    sqft: 1488,
+    lot_sqft: 2_613,
+    year_built: 1908,
+    property_type: "Single Family",
+    hoa_fee: 0,
+    property_tax: 14_800,
+    parking: "1-car garage",
+    photo_url: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80",
+    photos: [
+      "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80",
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80",
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
+      "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&q=80",
+    ],
+    // Scores
+    score_overall: 7.4,
+    score_value: 7.8,
+    score_investment: 6.9,
+    score_environment: 7.5,
+    score_confidence: 0.82,
+    // Financials
+    avm_estimate: 1_340_000,
+    price_change_pct: -3.4,
+    last_sold_date: "2019-03-15",
+    last_sold_price: 1_100_000,
+    price_history: [
+      { date: "2025-03-01", price: 1_340_000, event: "Listed" },
+      { date: "2025-01-15", price: 1_295_000, event: "Price change" },
+      { date: "2024-11-20", price: 1_375_000, event: "Listed" },
+    ],
+    days_on_market: 42,
+    // Environment
+    noise_db: 45,
+    noise_label: "Quiet",
+    crime_safety_score: 78,
+    crime_label: "Low",
+    walkability_score: 92,
+    // Lifestyle
+    lifestyle_walk_score: 92,
+    lifestyle_transit_score: 85,
+    lifestyle_bike_score: 74,
+    // Schools
+    schools: [
+      { name: "Rosa Parks Elementary", type: "elementary", rating: 8, distance_mi: 0.4 },
+      { name: "Everett Middle School", type: "middle", rating: 7, distance_mi: 0.7 },
+      { name: "Wallenberg High School", type: "high", rating: 7, distance_mi: 1.1 },
+    ],
+  };
+}
+
+/**
+ * Fetch a single property by ID.
+ * Uses the real backend API when NEXT_PUBLIC_API_URL is set;
+ * falls back to rich mock data for local development / demos.
+ */
+export async function getPropertyDetail(id: string): Promise<PropertySpec | null> {
+  // Try real API first
+  try {
+    const property = await getProperty(Number(id));
+    // Adapt PropertyDetail → PropertySpec (some fields may be missing)
+    return property as unknown as PropertySpec;
+  } catch {
+    // Fall back to mock for demo
+    if (process.env.NEXT_PUBLIC_API_URL) return null; // real URL set — don't fake it
+    return mockPropertyDetail(id);
+  }
 }
 
 export async function compareProperties(ids: number[]): Promise<CompareResponse> {
