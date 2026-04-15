@@ -233,3 +233,114 @@
 - ~~Real-time SSE~~ — polling is fine until v1.1
 - ~~Native mobile app~~ — responsive web covers 95% of use cases
 - ~~Full account system in MVP~~ — localStorage first
+---
+
+## Post-Launch Bug Fixes (from QA Testing — 2026-04-14)
+
+### 🔴 T-B01: Fix 0 Results Bug on Vercel Deployment
+**What:** Search returns 0 results on the live deployment because `NEXT_PUBLIC_API_URL` env var causes mock fallback to be skipped.
+**Root cause:** `lib/api.ts` — `if (process.env.NEXT_PUBLIC_API_URL) return null;` in `getPropertyDetail`
+**Fix:** Either: (a) remove the env var from Vercel, OR (b) make mock data work even when `NEXT_PUBLIC_API_URL` is set for demo purposes
+**Severity:** Critical — Complete blocker, no users can search
+**Files:** `lib/api.ts`
+**Breakdown:**
+1. `fix: disable API URL env var check for demo mode`
+2. `test: verify mock data returns for known cities on deployed site`
+
+---
+
+### 🔴 T-B02: Add Loading Skeleton During Search
+**What:** No loading feedback when searching — results appear suddenly
+**Files:** `app/listings/page.tsx`
+**Fix:** Show skeleton cards while API is fetching, add `isLoading` state
+**Severity:** High — Poor UX, users think it's broken
+**Breakdown:**
+1. `feat: add loading skeleton state to listings page`
+2. `test: verify skeleton shows during fetch`
+
+---
+
+### 🔴 T-B03: Add Error/Empty State for 0 Results
+**What:** When search returns 0 results, show helpful message ("Try nearby city or broaden filters")
+**Files:** `app/listings/page.tsx`
+**Severity:** High — Users have no guidance on what to do
+**Breakdown:**
+1. `feat: add empty state with suggestions when no results`
+2. `test: empty state renders correctly with 0 results`
+
+---
+
+### 🟡 T-B04: Lead Form Confirmation UX
+**What:** After lead form submit, user gets no confirmation or next steps
+**Files:** `components/LeadForm.tsx`
+**Fix:** Show clear success message + "Check your email for confirmation" + agent timeline
+**Severity:** High — Without confirmation, users think the form didn't work
+**Breakdown:**
+1. `feat: add confirmation message after lead form submit`
+2. `test: confirmation shows after successful submit`
+
+---
+
+### 🟡 T-B05: Agent Dashboard for Lead Management
+**What:** Agents have no way to see or manage leads they receive
+**Files:** New route `app/agent/dashboard/page.tsx`
+**This is the monetization blocker** — without this, agents won't pay
+**Severity:** Critical for monetization
+**Breakdown:**
+1. `feat: add agent dashboard page`
+2. `feat: add lead list view with property details`
+3. `feat: add contact buyer button`
+4. `test: dashboard renders with mock leads`
+
+---
+
+### 🟡 T-B06: Professional PDF Generation (Server-side)
+**What:** Browser print-to-PDF is inconsistent and unprofessional
+**Files:** New API route + PDF library (puppeteer or @react-pdf/renderer)
+**Fix:** Server-side PDF generation with agent branding support
+**Severity:** Critical for agent adoption
+**Breakdown:**
+1. `feat: add server-side PDF generation API route`
+2. `feat: add agent branding (name, logo, colors) to PDF`
+3. `feat: add PDF download button that calls server API`
+4. `test: PDF generates with correct content and branding`
+
+---
+
+### 🟡 T-B07: Score Explanation for Non-Technical Users
+**What:** Score tooltips are too technical for average home buyers
+**Files:** `components/ScoreDisplay.tsx`, `lib/scores.ts`
+**Fix:** Replace technical breakdowns with plain-English explanations
+**Example:** Instead of "AVM discount ratio: 0.08" → "Priced 8% below market value"
+**Severity:** Medium — Without this, scores don't help users decide
+**Breakdown:**
+1. `feat: add human-readable score explanations`
+2. `feat: add "What this means" tooltip for each score`
+3. `test: explanations render correctly`
+
+---
+
+### 🟢 T-B08: Saved Page Hydration Fix
+**What:** /saved page sometimes shows empty state even when favorites exist
+**Files:** `app/saved/page.tsx`, `hooks/useFavorites.ts`
+**Fix:** Ensure localStorage hydration happens before render
+**Severity:** Low — Minor persistence issue
+**Breakdown:**
+1. `fix: add loading state while hydrating from localStorage`
+2. `test: saved page renders correctly after hydration`
+
+---
+
+## v1.1 Pipeline (After Agent Dashboard + PDF)
+
+### T-B09: CRM Integration
+- HubSpot / Salesforce webhook on lead submission
+- Auto-create contact in agent's CRM
+
+### T-B10: "Best in Comparison" AI Summary
+- Generate one-paragraph summary of the comparison
+- "Property A offers the best value, priced 12% below market..."
+
+### T-B11: Data Source Attribution
+- Show data sources (Redfin, HowLoud, etc.) on each data point
+- Build trust through transparency
