@@ -16,7 +16,7 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { Share2, ChevronDown, ChevronUp, ExternalLink, Info } from "lucide-react";
+import ShareButton from "@/components/ShareButton";
 
 export async function generateMetadata({
   params,
@@ -258,19 +258,7 @@ export default async function PropertyDetailPage({
               {statusLabel}
             </Badge>
             <AddToCompareButton propertyId={property.id} />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  navigator.clipboard.writeText(window.location.href);
-                }
-              }}
-              className="cursor-pointer"
-            >
-              <Share2 className="w-3.5 h-3.5 mr-1" />
-              Share
-            </Button>
+            <ShareButton />
           </div>
           {/* Quick stats row */}
           <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted-foreground">
