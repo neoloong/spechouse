@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Search, Home, ArrowLeft } from "lucide-react";
+import { Heart, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PropertyCard from "@/components/PropertyCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,24 +78,6 @@ function SavedContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* ── Top bar ── */}
-      <header className="border-b bg-background/95 backdrop-blur sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-4">
-          <Link href="/" className="font-black text-xl shrink-0">
-            Spec<span className="text-primary">House</span>
-          </Link>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <Search className="w-4 h-4 mr-2" />
-                Search
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
       <div className="container mx-auto px-4 py-6 flex-1">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
