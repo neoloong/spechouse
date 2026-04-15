@@ -153,7 +153,15 @@ export default function CompareTray() {
       <button
         ref={trayRef as React.Ref<HTMLButtonElement>}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (ready) {
+            handleCompareNow();
+          } else if (ids.length === 1) {
+            router.push("/listings");
+          } else {
+            setOpen((v) => !v);
+          }
+        }}
         className={cn(
           "flex items-center gap-3 bg-background border shadow-2xl rounded-full px-5 py-2.5 transition-all",
           open ? "ring-2 ring-primary/30" : "hover:shadow-3xl"
