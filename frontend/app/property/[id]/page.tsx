@@ -17,6 +17,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import ShareButton from "@/components/ShareButton";
+import { Info } from "lucide-react";
 
 export async function generateMetadata({
   params,
