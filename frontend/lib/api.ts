@@ -52,12 +52,16 @@ export interface AggData {
   environment?: {
     noise_db?: number;
     noise_label?: string;
+    noise_score?: number;
+    noise_detail?: { traffic?: number; local?: number; airports?: number };
     crime_score?: number;
+    crime_label?: string;
   };
   scores?: {
     overall?: number;
     value?: number;
     investment?: number;
+    environment?: number;
   };
   schools?: SchoolEntry[];
   comparisons?: Record<string, unknown>;
@@ -101,6 +105,7 @@ export interface PropertySpec {
   property_type?: string;
   hoa_fee?: number;
   property_tax?: number;
+  agg_data?: AggData;
   parking?: string;
   // Financials (detail page)
   avm_estimate?: number;
@@ -122,8 +127,6 @@ export interface PropertySpec {
   crime_label?: string;
   crime_safety_score?: number;
   walkability_score?: number;
-  score_environment?: number;  // composite environment score (noise + crime)
-  // Lifestyle scores
   // Lifestyle scores
   lifestyle_walk_score?: number;
   lifestyle_transit_score?: number;

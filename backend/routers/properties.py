@@ -138,6 +138,9 @@ async def _upsert_property(db: AsyncSession, data: dict) -> PropertyORM:
     else:
         for k, v in data.items():
             if k not in ("id", "agg_data") and hasattr(prop, k):
+                # Don't overwrite photo_url/photos if already fetched
+                if k in ("photo_url", "photos") and getattr(prop, k):
+                    continue
                 setattr(prop, k, v)
         if geom is not None:
             prop.geom = geom
@@ -281,6 +284,29 @@ _PTYPE_SQL_PATTERNS = {
 
 
 
+def _normalize_agg_scores(prop):
+    """Normalize score values in agg_data from 0-100 to 0-10 for API responses."""
+    def _to_10(v):
+        if v is None:
+            return None
+        return round(float(v) * 0.1, 1)
+
+    agg = prop.agg_data or {}
+    if not agg:
+        return
+
+    scores = agg.get("scores")
+    if scores:
+        agg["scores"] = {k: _to_10(v) for k, v in (scores or {}).items()}
+
+    env = agg.get("environment")
+    if env:
+        if env.get("noise_score") is not None:
+            env["noise_score"] = _to_10(env["noise_score"])
+        if env.get("crime_score") is not None:
+            env["crime_score"] = _to_10(env["crime_score"])
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/search", response_model=List[PropertyListItem])
@@ -388,6 +414,10 @@ async def search_properties(
     if min_sqft:
         props = [p for p in props if (p.sqft or 0) >= min_sqft]
 
+    # Normalize scores in agg_data from 0-100 to 0-10 for API response
+    for p in props:
+        _normalize_agg_scores(p)
+
     return props[:limit]
 
 
@@ -403,7 +433,8 @@ async def get_property(
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Map agg_data.scores to top-level score fields
+    # Normalize agg_data scores from 0-100 to 0-10 and map to top-level fields
+    _normalize_agg_scores(prop)
     agg_data = prop.agg_data or {}
     scores = agg_data.get("scores", {}) or {}
     env_data = agg_data.get("environment", {}) or {}

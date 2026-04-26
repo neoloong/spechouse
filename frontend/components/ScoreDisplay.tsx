@@ -10,9 +10,9 @@ export interface ScoreBreakdownItem {
 }
 
 export interface ScoreDisplayProps {
-  score: number; // 0-100
+  score: number; // 0-10
   label: string; // "Value" | "Investment" | "Environment"
-  confidence?: number; // ± value, e.g. 8
+  confidence?: number; // ± value, e.g. 0.8
   breakdown?: ScoreBreakdownItem[];
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
@@ -34,20 +34,20 @@ export default function ScoreDisplay({
 }: ScoreDisplayProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // ── Color coding ──────────────────────────────────────────────────────────
+  // ── Color coding (0-10 scale) ──────────────────────────────────────────────
   const colorClass =
-    score >= 70 ? "text-emerald-600" :
-    score >= 50 ? "text-yellow-600" :
+    score >= 7.0 ? "text-emerald-600" :
+    score >= 5.0 ? "text-yellow-600" :
     "text-red-600";
 
   const trackClass =
-    score >= 70 ? "stroke-emerald-200" :
-    score >= 50 ? "stroke-yellow-200" :
+    score >= 7.0 ? "stroke-emerald-200" :
+    score >= 5.0 ? "stroke-yellow-200" :
     "stroke-red-200";
 
   const fillClass =
-    score >= 70 ? "stroke-emerald-500" :
-    score >= 50 ? "stroke-yellow-500" :
+    score >= 7.0 ? "stroke-emerald-500" :
+    score >= 5.0 ? "stroke-yellow-500" :
     "stroke-red-500";
 
   // ── Size mapping ──────────────────────────────────────────────────────────
@@ -61,10 +61,9 @@ export default function ScoreDisplay({
   // ── Circular progress ──────────────────────────────────────────────────────
   const radius = (svgSize - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - score / 100);
+  const dashOffset = circumference * (1 - score / 10);
 
-  // Normalize score to 0-10 for display
-  const displayScore = (score / 10).toFixed(1);
+  const displayScore = score.toFixed(1);
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -145,7 +144,7 @@ export default function ScoreDisplay({
 }
 
 function scoreColor(score: number): string {
-  if (score >= 70) return "text-emerald-600";
-  if (score >= 50) return "text-yellow-600";
+  if (score >= 7.0) return "text-emerald-600";
+  if (score >= 5.0) return "text-yellow-600";
   return "text-red-600";
 }

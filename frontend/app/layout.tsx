@@ -5,6 +5,7 @@ import "./print.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import CompareTray from "@/components/CompareTray";
+import { CompareProvider } from "@/contexts/CompareContext";
 import ChatWidget from "@/components/ChatWidget";
 import GA4Provider from "@/components/GA4Provider";
 
@@ -36,9 +37,11 @@ export default function RootLayout({
         <Analytics />
         <SpeedInsights />
         <GA4Provider />
-        <ChatWidget />
-        {children}
-        <CompareTray />
+        <CompareProvider>
+          <ChatWidget />
+          {children}
+          <CompareTray />
+        </CompareProvider>
       </body>
     </html>
   );

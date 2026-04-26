@@ -1,6 +1,6 @@
 "use client";
 
-import { useCompare } from "@/hooks/useCompare";
+import { useCompareContext as useCompare } from "@/hooks/useCompare";
 import { Button } from "@/components/ui/button";
 import { GitCompareArrows, Check, Plus } from "lucide-react";
 

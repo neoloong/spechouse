@@ -3,7 +3,7 @@
 import React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useCompare, type PropertySpec } from "@/hooks/useCompare";
+import { useCompareContext as useCompare, type PropertySpec } from "@/hooks/useCompare";
 import { Button } from "@/components/ui/button";
 import ScoreBadge from "@/components/ScoreBadge";
 import { GitCompareArrows, X, Plus, ChevronUp } from "lucide-react";

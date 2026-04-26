@@ -19,6 +19,11 @@ def _build_spec_row(prop: PropertyORM) -> dict:
     lifestyle = agg.get("lifestyle", {})
     crime = agg.get("crime", {})
 
+    def _to_10(v):
+        if v is None:
+            return None
+        return round(float(v) * 0.1, 1)
+
     # Extract schools by level (elementary, middle, high)
     schools_by_level = {"elementary": None, "middle": None, "high": None}
     for s in schools:
@@ -39,9 +44,10 @@ def _build_spec_row(prop: PropertyORM) -> dict:
         price_per_sqft = round(float(prop.list_price) / prop.sqft, 2)
 
     # Noise: use computed noise_score (0-100 quietness) from environment, fall back to raw dB
+    # Scores stored as 0-100; normalize noise_score to 0-10 for display
     noise_db = env.get("noise_db")
     noise_label = env.get("noise_label")
-    noise_score = env.get("noise_score")  # computed 0-100 quietness score (higher = quieter)
+    noise_score = _to_10(env.get("noise_score"))  # normalized to 0-10 (higher = quieter)
 
     return {
         "id": prop.id,
@@ -71,10 +77,10 @@ def _build_spec_row(prop: PropertyORM) -> dict:
         "noise_label": noise_label,
         "crime_score": crime.get("safety_score"),
         "crime_label": crime.get("label"),
-        "score_overall": scores.get("overall"),
-        "score_value": scores.get("value"),
-        "score_investment": scores.get("investment"),
-        "score_environment": scores.get("environment"),
+        "score_overall": _to_10(scores.get("overall")),
+        "score_value": _to_10(scores.get("value")),
+        "score_investment": _to_10(scores.get("investment")),
+        "score_environment": _to_10(scores.get("environment")),
         "school_elementary": schools_by_level["elementary"],
         "school_middle": schools_by_level["middle"],
         "school_high": schools_by_level["high"],

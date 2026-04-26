@@ -10,7 +10,7 @@ import FilterBar, { FilterState } from "@/components/FilterBar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { searchProperties, type PropertyListItem } from "@/lib/api";
-import { useCompare } from "@/hooks/useCompare";
+import { useCompareContext as useCompare } from "@/hooks/useCompare";
 import { Sparkles, X, RefreshCw, AlertCircle, Home } from "lucide-react";
 import { analytics } from "@/lib/analytics";
 

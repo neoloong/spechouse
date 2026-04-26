@@ -204,7 +204,7 @@ export default async function PropertyDetailPage({
   const _noise_detail = env.noise_detail ?? noise_detail;
   const _crime_safety_score: number | undefined = env.crime_score ?? crimeAgg.safety_score ?? crime_safety_score;
   const _crime_label: string | undefined = env.crime_label ?? crimeAgg.label ?? crime_label;
-    list_price != null ? Math.round(list_price * 0.0035) : null;
+  const monthlyMortgage = list_price != null ? Math.round(list_price * 0.0035) : null;
   const avmDiscount =
     list_price != null && avm_estimate != null
       ? ((list_price - avm_estimate) / avm_estimate) * 100

@@ -10,9 +10,7 @@ interface Props {
 }
 
 export default function ScoreBadge({ score, label, size = "md" }: Props) {
-  // Normalize from 0-100 to 0-10
-  const normalizedScore = score != null ? score / 10 : undefined;
-  const colorClass = scoreColor(normalizedScore);
+  const colorClass = scoreColor(score);
   return (
     <span
       className={cn(
@@ -21,7 +19,7 @@ export default function ScoreBadge({ score, label, size = "md" }: Props) {
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm"
       )}
     >
-      {normalizedScore != null ? normalizedScore.toFixed(1) : "—"}
+      {score != null ? score.toFixed(1) : "—"}
       {label && <span className="font-normal opacity-75">{label}</span>}
     </span>
   );
