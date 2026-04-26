@@ -111,7 +111,7 @@ export interface PropertySpec {
   days_on_market?: number;
   // Environment
   noise_db?: number;
-  noise_score?: number;
+  noise_score?: number;        // computed 0-100 quietness score (higher = quieter)
   noise_label?: string;
   noise_detail?: {
     traffic?: number;
@@ -122,6 +122,8 @@ export interface PropertySpec {
   crime_label?: string;
   crime_safety_score?: number;
   walkability_score?: number;
+  score_environment?: number;  // composite environment score (noise + crime)
+  // Lifestyle scores
   // Lifestyle scores
   lifestyle_walk_score?: number;
   lifestyle_transit_score?: number;

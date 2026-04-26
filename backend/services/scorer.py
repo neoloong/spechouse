@@ -143,10 +143,17 @@ def compute_scores(
     inv_vals = [components[k] for k in ["rental_yield", "price_trend"] if components.get(k) is not None]
     investment_score = round(sum(inv_vals) / len(inv_vals), 1) if inv_vals else None
 
+    # Environment score: noise + crime
+    env_vals = [components[k] for k in ["noise", "crime"] if components.get(k) is not None]
+    environment_score = round(sum(env_vals) / len(env_vals), 1) if env_vals else None
+
     return {
         "overall": overall if overall is not None else 50.0,
         "value": value_score if value_score is not None else 50.0,
         "investment": investment_score if investment_score is not None else 50.0,
+        "environment": environment_score if environment_score is not None else 50.0,
+        "noise": components.get("noise"),
+        "crime": components.get("crime"),
     }
 
 
@@ -294,14 +301,6 @@ async def enrich_agg_data(
     if crime_data:
         crime_safety_score = crime_data.get("safety_score")
 
-    agg["environment"] = {
-        "noise_db": noise_data.get("noise_db"),
-        "noise_label": noise_data.get("noise_label"),
-        "noise_detail": noise_data.get("noise_detail"),
-        "crime_score": crime_safety_score,
-        **({"crime_label": crime_data.get("label")} if crime_data and crime_data.get("label") else {}),
-    }
-
     agg["scores"] = compute_scores(
         list_price=list_price,
         sqft=sqft,
@@ -311,5 +310,17 @@ async def enrich_agg_data(
         rentcast_avm=None,
         schools=schools,
     )
+
+    # Extract noise_score from computed scores (0-100 quietness, higher = quieter)
+    noise_score = agg["scores"].get("noise")
+
+    agg["environment"] = {
+        "noise_db": noise_data.get("noise_db"),
+        "noise_label": noise_data.get("noise_label"),
+        "noise_detail": noise_data.get("noise_detail"),
+        "noise_score": noise_score,
+        "crime_score": crime_safety_score,
+        **({"crime_label": crime_data.get("label")} if crime_data and crime_data.get("label") else {}),
+    }
 
     return agg

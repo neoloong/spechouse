@@ -117,7 +117,7 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
         renderCell: (p) => {
           const v = p.noise_score;
           const l = p.noise_label;
-          return v != null ? `${v.toFixed(0)}/10 ${l ? `(${l})` : ''}` : 'N/A';
+          return v != null ? `${v.toFixed(0)}${l ? ` (${l})` : ''}` : 'N/A';
         },
         higherIsBetter: true 
       },
@@ -156,6 +156,7 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
       { label: "Overall Score", key: "score_overall", higherIsBetter: true },
       { label: "Value Score", key: "score_value", higherIsBetter: true },
       { label: "Investment Score", key: "score_investment", higherIsBetter: true },
+      { label: "Environment Score", key: "score_environment", higherIsBetter: true },
     ],
   },
 ];

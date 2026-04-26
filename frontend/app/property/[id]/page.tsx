@@ -17,7 +17,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import ShareButton from "@/components/ShareButton";
-import { Info } from "lucide-react";
+import { Info, ExternalLink } from "lucide-react";
 
 export async function generateMetadata({
   params,
@@ -112,7 +112,7 @@ function ScoreBreakdownTooltip({ type }: { type: "value" | "investment" | "envir
     environment: {
       title: "Environment Score",
       description:
-        "Combines noise levels, crime safety, walkability, and transit accessibility. Higher = better quality of life indicators.",
+        "Combines noise levels (HowLoud), crime safety (city open data / FBI), walkability, and transit accessibility. Higher = better quality of life.",
     },
   };
 
@@ -195,21 +195,29 @@ export default async function PropertyDetailPage({
     schools,
   } = property;
 
-  const monthlyMortgage =
+  // Override environment fields from agg_data (API doesn't flatten these to top-level)
+  const env: any = property.agg_data?.environment ?? {};
+  const crimeAgg: any = (property.agg_data as any)?.crime ?? {};
+  const _noise_db = env.noise_db ?? noise_db;
+  const _noise_label = env.noise_label ?? noise_label;
+  const _noise_score: number | undefined = env.noise_score ?? noise_score;
+  const _noise_detail = env.noise_detail ?? noise_detail;
+  const _crime_safety_score: number | undefined = env.crime_score ?? crimeAgg.safety_score ?? crime_safety_score;
+  const _crime_label: string | undefined = env.crime_label ?? crimeAgg.label ?? crime_label;
     list_price != null ? Math.round(list_price * 0.0035) : null;
   const avmDiscount =
     list_price != null && avm_estimate != null
       ? ((list_price - avm_estimate) / avm_estimate) * 100
       : null;
 
-  const noiseBucket =
-    noise_db != null
-      ? noise_db < 50
+  const noiseLevelLabel =
+    _noise_label ?? (_noise_db != null
+      ? _noise_db < 50
         ? "Quiet"
-        : noise_db < 65
+        : _noise_db < 65
         ? "Moderate"
         : "Loud"
-      : null;
+      : null);
 
   const statusLabel =
     property.status === "sold"
@@ -445,71 +453,109 @@ export default async function PropertyDetailPage({
 
         {/* Environment */}
         <SectionCard title="Environment">
-          {noise_db != null && noiseBucket && (
-            <DetailRow
-              label="Noise Level"
-              value={
-                <span className="flex items-center gap-2">
-                  <span className="font-medium">{noise_db} dB</span>
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
-                      noiseBucket === "Quiet"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : noiseBucket === "Moderate"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
+          {_noise_db != null && noiseLevelLabel && (
+            <>
+              <DetailRow
+                label={
+                  <a
+                    href={`https://howloud.com/?ll=${encodeURIComponent(property.latitude ?? "")},${encodeURIComponent(property.longitude ?? "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 hover:text-primary transition-colors group"
                   >
-                    {noiseBucket}
+                    HowLoud Noise
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                }
+                value={
+                  <span className="flex items-center gap-2">
+                    <span className="font-medium">{_noise_db} dB</span>
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
+                        noiseLevelLabel === "Very Quiet" || noiseLevelLabel === "Quiet"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : noiseLevelLabel === "Moderate"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {noiseLevelLabel}
+                    </span>
                   </span>
-                </span>
-              }
-            />
+                }
+              />
+              {_noise_score != null && (
+                <DetailRow
+                  label="Noise Score"
+                  value={
+                    <span className="flex items-center gap-2">
+                      <ScoreBadge score={_noise_score} size="sm" />
+                      <span className="text-xs text-muted-foreground">(100 = quietest)</span>
+                    </span>
+                  }
+                />
+              )}
+            </>
           )}
-          {noise_detail && (
+          {_noise_db == null && (
+            <div className="py-3 text-sm text-muted-foreground">
+              Noise data will appear after enrichment completes.
+            </div>
+          )}
+          {_noise_detail && (
             <div className="py-2.5 border-b last:border-0">
               <div className="flex justify-between items-center mb-1.5">
                 <span className="text-xs text-muted-foreground">Noise Breakdown</span>
               </div>
               <div className="flex gap-4 text-xs">
-                {noise_detail.traffic != null && (
+                {_noise_detail.traffic != null && (
                   <span className="flex items-center gap-1">
                     <span className="text-muted-foreground">🚗</span>
-                    <span>Traffic {noise_detail.traffic}</span>
+                    <span>Traffic {_noise_detail.traffic}</span>
                   </span>
                 )}
-                {noise_detail.local != null && (
+                {_noise_detail.local != null && (
                   <span className="flex items-center gap-1">
                     <span className="text-muted-foreground">🏙️</span>
-                    <span>Local {noise_detail.local}</span>
+                    <span>Local {_noise_detail.local}</span>
                   </span>
                 )}
-                {noise_detail.airports != null && noise_detail.airports > 0 && (
+                {_noise_detail.airports != null && _noise_detail.airports > 0 && (
                   <span className="flex items-center gap-1">
                     <span className="text-muted-foreground">✈️</span>
-                    <span>Airports {noise_detail.airports}</span>
+                    <span>Airports {_noise_detail.airports}</span>
                   </span>
                 )}
               </div>
             </div>
           )}
-          {crime_safety_score != null && (
+          {_crime_safety_score != null && (
             <DetailRow
-              label="Crime Safety"
+              label={
+                <a
+                  href={`https://www.google.com/search?q=crime+rate+${encodeURIComponent(address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 hover:text-primary transition-colors group"
+                >
+                  Crime Safety
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+              }
               value={
                 <span className="flex items-center gap-2">
-                  <span className="font-medium">{crime_safety_score}/100</span>
-                  {crime_label && (
+                  <span className="font-medium">{_crime_safety_score}/100</span>
+                  {_crime_label && (
                     <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
-                        crime_label === "Low"
+                        _crime_label === "Low"
                           ? "bg-emerald-100 text-emerald-800"
-                          : crime_label === "Moderate"
+                          : _crime_label === "Moderate"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {crime_label}
+                      {_crime_label}
                     </span>
                   )}
                 </span>
@@ -595,8 +641,10 @@ export default async function PropertyDetailPage({
 
         <Separator className="my-6" />
         <p className="text-xs text-muted-foreground text-center">
-          Listing data from Redfin · AVM from automated valuation model · Last updated:{" "}
-          {new Date().toLocaleDateString()}
+          Listing data from Redfin ·{" "}
+          <a href="https://howloud.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Noise data from HowLoud</a> ·{" "}
+          <a href="https://cde.ucr.cjis.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Crime from city open data / FBI</a> ·{" "}
+          Last updated: {new Date().toLocaleDateString()}
         </p>
       </div>
     </div>

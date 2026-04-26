@@ -296,6 +296,16 @@ export function CompareClient() {
                 />
               </div>
             )}
+
+            {/* Data source footnote */}
+            <p className="text-xs text-muted-foreground text-center mt-10">
+              Noise data from{" "}
+              <a href="https://howloud.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">HowLoud</a>
+              {" · "}Crime data from city open data /{" "}
+              <a href="https://cde.ucr.cjis.gov" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">FBI UCR</a>
+              {" · "}Schools from{" "}
+              <a href="https://www.redfin.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Redfin / GreatSchools</a>
+            </p>
           </>
         )}
       </div>
