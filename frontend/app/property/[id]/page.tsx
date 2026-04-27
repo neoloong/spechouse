@@ -489,7 +489,7 @@ export default async function PropertyDetailPage({
                   label="Noise Score"
                   value={
                     <span className="flex items-center gap-2">
-                      <ScoreBadge score={_noise_score} size="sm" />
+                      <ScoreBadge score={_noise_score != null ? _noise_score / 10 : undefined} size="sm" />
                       <span className="text-xs text-muted-foreground">(100 = quietest)</span>
                     </span>
                   }
@@ -544,7 +544,7 @@ export default async function PropertyDetailPage({
               }
               value={
                 <span className="flex items-center gap-2">
-                  <span className="font-medium">{_crime_safety_score}/100</span>
+                   <span className="font-medium">{(_crime_safety_score / 10).toFixed(1)}/10</span>
                   {_crime_label && (
                     <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${

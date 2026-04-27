@@ -127,7 +127,7 @@ const SPEC_SECTIONS: { title: string; rows: SpecRow[] }[] = [
         renderCell: (p) => {
           const v = p.crime_score;
           const l = p.crime_label;
-          return v != null ? `${v}/100 ${l ? `(${l})` : ''}` : 'N/A';
+          return v != null ? `${(v / 10).toFixed(1)}/10 ${l ? `(${l})` : ''}` : 'N/A';
         },
         higherIsBetter: true 
       },

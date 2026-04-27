@@ -25,3 +25,4 @@ frontend/out/
 *.log
 .api_quota.json
 .vercel
+spechouse.db

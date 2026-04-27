@@ -9,6 +9,12 @@ MOCK_PROPERTIES = [
         "year_built": 1978, "hoa_fee": None, "property_tax": 8400.0,
         "list_price": 685000.0, "property_type": "Single Family",
         "latitude": 30.2383, "longitude": -97.7722,
+        "photo_url": "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80",
+            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80",
+            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
+        ],
     },
     {
         "external_id": "mock-austin-002",
@@ -18,6 +24,12 @@ MOCK_PROPERTIES = [
         "year_built": 2005, "hoa_fee": 150.0, "property_tax": 11200.0,
         "list_price": 920000.0, "property_type": "Single Family",
         "latitude": 30.2888, "longitude": -97.7404,
+        "photo_url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
+            "https://images.unsplash.com/photo-1600585154084-4e5fe7c39198?w=800&q=80",
+            "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800&q=80",
+        ],
     },
     {
         "external_id": "mock-austin-003",
@@ -27,6 +39,12 @@ MOCK_PROPERTIES = [
         "year_built": 2012, "hoa_fee": 620.0, "property_tax": 9800.0,
         "list_price": 550000.0, "property_type": "Condo",
         "latitude": 30.2680, "longitude": -97.7520,
+        "photo_url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80",
+            "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800&q=80",
+            "https://images.unsplash.com/photo-1600566753086-00f18f6b055e?w=800&q=80",
+        ],
     },
     {
         "external_id": "mock-austin-004",
@@ -36,6 +54,12 @@ MOCK_PROPERTIES = [
         "year_built": 1962, "hoa_fee": None, "property_tax": 7200.0,
         "list_price": 595000.0, "property_type": "Single Family",
         "latitude": 30.3072, "longitude": -97.7290,
+        "photo_url": "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=800&q=80",
+            "https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=800&q=80",
+            "https://images.unsplash.com/photo-1600585153490-76fb20a32601?w=800&q=80",
+        ],
     },
     {
         "external_id": "mock-austin-005",
@@ -45,6 +69,12 @@ MOCK_PROPERTIES = [
         "year_built": 2018, "hoa_fee": 280.0, "property_tax": 5100.0,
         "list_price": 310000.0, "property_type": "Condo",
         "latitude": 30.2500, "longitude": -97.7651,
+        "photo_url": "https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=800&q=80",
+            "https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=800&q=80",
+            "https://images.unsplash.com/photo-1600585152915-d208bec867a1?w=800&q=80",
+        ],
     },
     {
         "external_id": "mock-austin-006",
@@ -54,6 +84,12 @@ MOCK_PROPERTIES = [
         "year_built": 1988, "hoa_fee": None, "property_tax": 12500.0,
         "list_price": 1050000.0, "property_type": "Single Family",
         "latitude": 30.3542, "longitude": -97.7290,
+        "photo_url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80",
+        "photos": [
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80",
+            "https://images.unsplash.com/photo-1600047509782-20d39509f26d?w=800&q=80",
+            "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800&q=80",
+        ],
     },
 ]
 

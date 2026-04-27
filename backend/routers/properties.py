@@ -227,6 +227,7 @@ async def _enrich_property(prop_id: int) -> None:
                 lifestyle_data = {}
 
         new_agg = await scorer.enrich_agg_data(
+            db=db,
             current_agg=prop.agg_data or {},
             list_price=float(prop.list_price) if prop.list_price else None,
             sqft=prop.sqft,
@@ -236,7 +237,13 @@ async def _enrich_property(prop_id: int) -> None:
             city=prop.city,
             state=prop.state,
             beds=prop.beds,
+            bathrooms=float(prop.baths) if prop.baths else None,
             property_type=prop.property_type,
+            address=prop.address_display,
+            zip_code=prop.zip_code,
+            days_on_market=None,       # TODO: fetch from Redfin price history
+            price_cut_count=None,      # TODO: fetch from Redfin price history
+            walkability=None,          # TODO: Walkscore API integration
         )
         if crime_data:
             new_agg["crime"] = crime_data
@@ -285,26 +292,30 @@ _PTYPE_SQL_PATTERNS = {
 
 
 def _normalize_agg_scores(prop):
-    """Normalize score values in agg_data from 0-100 to 0-10 for API responses."""
+    """Ensure SpecHouse score values are 0-10 for API responses.
+    Handles both old format (0-100) and new v2.0 format (0-10).
+    Preserves confidence metadata (not numeric scores)."""
     def _to_10(v):
         if v is None:
             return None
-        return round(float(v) * 0.1, 1)
+        fv = float(v)
+        if fv > 10:
+            return round(fv * 0.1, 1)  # old 0-100 → 0-10
+        return round(fv, 1)            # already 0-10
 
     agg = prop.agg_data or {}
     if not agg:
         return
 
     scores = agg.get("scores")
-    if scores:
-        agg["scores"] = {k: _to_10(v) for k, v in (scores or {}).items()}
-
-    env = agg.get("environment")
-    if env:
-        if env.get("noise_score") is not None:
-            env["noise_score"] = _to_10(env["noise_score"])
-        if env.get("crime_score") is not None:
-            env["crime_score"] = _to_10(env["crime_score"])
+    if scores and isinstance(scores, dict):
+        normalized = {}
+        for k, v in scores.items():
+            if k in ("confidence", "confidence_margin", "components_detail"):
+                normalized[k] = v  # preserve metadata as-is
+            else:
+                normalized[k] = _to_10(v)
+        agg["scores"] = normalized
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -414,7 +425,7 @@ async def search_properties(
     if min_sqft:
         props = [p for p in props if (p.sqft or 0) >= min_sqft]
 
-    # Normalize scores in agg_data from 0-100 to 0-10 for API response
+    # Normalize scores in agg_data to 0-10 for API response
     for p in props:
         _normalize_agg_scores(p)
 
@@ -433,7 +444,7 @@ async def get_property(
     if prop is None:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Normalize agg_data scores from 0-100 to 0-10 and map to top-level fields
+    # Normalize agg_data scores to 0-10 and map to top-level fields
     _normalize_agg_scores(prop)
     agg_data = prop.agg_data or {}
     scores = agg_data.get("scores", {}) or {}
@@ -444,7 +455,7 @@ async def get_property(
     prop.score_investment = scores.get("investment")
     prop.score_environment = scores.get("environment")
 
-    prop.score_confidence = None
+    prop.score_confidence = scores.get("confidence_margin")
 
     # Map rental data to top-level fields
     rental_data = agg_data.get("rental", {}) or {}

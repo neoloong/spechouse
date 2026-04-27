@@ -22,7 +22,10 @@ def _build_spec_row(prop: PropertyORM) -> dict:
     def _to_10(v):
         if v is None:
             return None
-        return round(float(v) * 0.1, 1)
+        fv = float(v)
+        if fv > 10:
+            return round(fv * 0.1, 1)  # old 0-100 → 0-10
+        return round(fv, 1)            # already 0-10
 
     # Extract schools by level (elementary, middle, high)
     schools_by_level = {"elementary": None, "middle": None, "high": None}
@@ -43,8 +46,7 @@ def _build_spec_row(prop: PropertyORM) -> dict:
     if prop.list_price and prop.sqft:
         price_per_sqft = round(float(prop.list_price) / prop.sqft, 2)
 
-    # Noise: use computed noise_score (0-100 quietness) from environment, fall back to raw dB
-    # Scores stored as 0-100; normalize noise_score to 0-10 for display
+    # Noise: use computed noise_score from environment (0-10 quietness after normalization)
     noise_db = env.get("noise_db")
     noise_label = env.get("noise_label")
     noise_score = _to_10(env.get("noise_score"))  # normalized to 0-10 (higher = quieter)
